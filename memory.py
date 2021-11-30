@@ -96,7 +96,7 @@ class PrioritizedReplayMemory:
         idxs = [0 for _ in range(batch_size)]
         for _ in range(0, np.ceil(np.log(self._capacity) / np.log(2.0))):
             go_right = [
-                int(searches[i] > self._sumtree[idxs[i]].priority)  # TODO(lucaslingle): fix this
+                int(searches[i] > self._sumtree[idxs[2*(i+1)-1]].priority)
                 for i in range(batch_size)
             ]
             idxs = [
@@ -110,6 +110,5 @@ class PrioritizedReplayMemory:
             for i in range(batch_size)
         ]
 
+
 # something like this...
-# need to fix the tree somehow.
-# our algo would only work if each right node contained what's currently contained in the parent nodes.
