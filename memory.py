@@ -96,7 +96,7 @@ class PrioritizedReplayMemory:
         idxs = [0 for _ in range(batch_size)]
         for _ in range(0, np.ceil(np.log(self._capacity) / np.log(2.0))):
             go_right = [
-                int(searches[i] > self._sumtree[idxs[2*(i+1)-1]].priority)
+                int(searches[i] > self._sumtree[idxs[2*(i+1)-1]].priority)  # todo(lucaslingle): fix this
                 for i in range(batch_size)
             ]
             idxs = [
