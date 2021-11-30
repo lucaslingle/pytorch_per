@@ -24,7 +24,7 @@ class PrioritizedReplayMemory:
         self._eps = eps
         self._total_steps = 0
 
-        self._tree_size = self._capacity * (self._capacity + 1) // 2
+        self._tree_size = 2 * self._capacity - 1
         self._sumtree = [None for _ in range(self._tree_size)]
         self._expiration_idx = self._tree_size - self._capacity
 
