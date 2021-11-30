@@ -93,21 +93,22 @@ class PrioritizedReplayMemory:
         # search for memory_id in which each random query fell
         # this is a form of stratified sampling; the marginal dist over samples
         # with the batch_idx marginalized out matches the p.m.f. defined by the priorities.
-        idxs = [0 for _ in range(batch_size)]
-        for _ in range(0, np.ceil(np.log(self._capacity) / np.log(2.0))):
-            go_right = [
-                int(searches[i] > self._sumtree[idxs[2*(i+1)-1]].priority)  # todo(lucaslingle): fix this
-                for i in range(batch_size)
-            ]
-            idxs = [
-                (1-go_right[i]) * (2*(idxs[i]+1)-1) + \
-                go_right[i] * (2*(idxs[i]+1))
-                for i in range(batch_size)
-            ]
-
+        sampled_idxs = []
+        for i in range(batch_size):
+            sp_offset = 0.0
+            idx = 0
+            for _ in range(0, np.ceil(np.log(self._capacity) / np.log(2.0))):
+                idx_l = 2 * (idx + 1) - 1
+                sp_l = self._sumtree[idx_l].priority
+                if searches[i] >= sp_offset + sp_l:
+                    idx_r = 2 * (idx + 1)
+                    idx = idx_r
+                    sp_offset += sp_l
+                else:
+                    idx = idx_l
+            sampled_idxs.append(idx)
         return [
-            self._sumtree[idxs[i]].experience_tuple
-            for i in range(batch_size)
+            self._sumtree[idx].experience_tuple for idx in sampled_idxs
         ]
 
 
