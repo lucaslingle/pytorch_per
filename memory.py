@@ -67,7 +67,7 @@ class PrioritizedReplayMemory:
                 sp_r = 0.0 if node_r is None else node_r.priority
                 self._sumtree[idx] = PrioritizedExperienceTuple(
                     priority=(sp_l + sp_r),
-                    experience_tuple=experience_tuple
+                    experience_tuple=None
                 )
         self._step()
 
