@@ -59,20 +59,20 @@ class PrioritizedReplayMemory:
             if self._sumtree[idx] is not None:
                 self._sumtree[idx].priority += priority_delta
             else:
-                l_idx = 2 * (idx + 1) - 1  # left child of current node is at 2i using base-1 indexing.
-                r_idx = 2 * (idx + 1)      # right child of current node is at 2i+1 using base-1 indexing.
-                l_node = self._sumtree[l_idx]
-                r_node = self._sumtree[r_idx]
-                l_priority = 0.0 if l_node is None else l_node.priority
-                r_priority = 0.0 if r_node is None else r_node.priority
+                idx_l = 2 * (idx + 1) - 1  # left child of current node is at 2i using base-1 indexing.
+                idx_r = 2 * (idx + 1)      # right child of current node is at 2i+1 using base-1 indexing.
+                node_l = self._sumtree[idx_l]
+                node_r = self._sumtree[idx_r]
+                sp_l = 0.0 if node_l is None else node_l.priority
+                sp_r = 0.0 if node_r is None else node_r.priority
                 self._sumtree[idx] = PrioritizedExperienceTuple(
-                    priority=(l_priority + r_priority),
+                    priority=(sp_l + sp_r),
                     experience_tuple=experience_tuple
                 )
         self._step()
 
     def sample_batch(self, batch_size):
-        assert self._total_steps >= batch_size
+        assert self._total_steps >= self._capacity
         p_total = self._sumtree[0].priority
 
         # uniform random numbers in range p_total / k
