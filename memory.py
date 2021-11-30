@@ -73,7 +73,7 @@ class PrioritizedReplayMemory:
 
     def sample_batch(self, batch_size):
         assert self._total_steps >= batch_size
-        p_total = self._sumtree
+        p_total = self._sumtree[0].priority
 
         # uniform random numbers in range p_total / k
         unifs = np.random.uniform(low=0.0, hi=1.0, size=batch_size)
