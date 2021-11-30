@@ -75,8 +75,8 @@ class PrioritizedReplayMemory:
         assert self._total_steps >= self._capacity
         p_total = self._sumtree[0].priority
 
-        # uniform random numbers in range p_total / k
-        unifs = np.random.uniform(low=0.0, hi=1.0, size=batch_size)
+        # uniform random numbers in range [0, p_total / k)
+        unifs = np.random.uniform(low=0.0, high=1.0, size=batch_size)
         unifs *= p_total / float(batch_size)
 
         # separate shift for each uniform random number
