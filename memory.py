@@ -83,7 +83,7 @@ class PrioritizedReplayMemory:
         shifts = np.ones(dtype=np.float32, shape=(batch_size,))
         shifts *= p_total / float(batch_size)
         shifts = np.cumsum(shifts)
-        shifts -= (p_total / float(batch_size))
+        shifts -= p_total / float(batch_size)
 
         # get numbers in intervals
         #     [0,p_tot/k], [p_tot/k,2*p_tot/k], [2*p_tot/k,3*p_tot/k], etc.
