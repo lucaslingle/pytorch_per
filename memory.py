@@ -77,14 +77,13 @@ class PrioritizedReplayMemory:
 
         # uniform random numbers in range p_total / k
         unifs = np.random.uniform(low=0.0, hi=1.0, size=batch_size)
-        unifs *= p_total
-        unifs /= float(batch_size)
+        unifs *= p_total / float(batch_size)
 
         # separate shift for each uniform random number
         shifts = np.ones(dtype=np.float32, shape=(batch_size,))
-        shifts /= float(batch_size)
+        shifts *= p_total / float(batch_size)
         shifts = np.cumsum(shifts)
-        shifts -= (1.0 / float(batch_size))
+        shifts -= (p_total / float(batch_size))
 
         # get numbers in intervals
         #     [0,p_tot/k], [p_tot/k,2*p_tot/k], [2*p_tot/k,3*p_tot/k], etc.
