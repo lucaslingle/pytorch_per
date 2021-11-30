@@ -72,7 +72,7 @@ class PrioritizedReplayMemory:
         self._step()
 
     def sample_batch(self, batch_size):
-        assert self._total_steps is not None
+        assert self._total_steps > batch_size
         p_total = self._sumtree
 
         # uniform random numbers in range p_total / k
