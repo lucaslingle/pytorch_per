@@ -29,16 +29,16 @@ class PrioritizedReplayMemory:
         self._expiration_idx = self._tree_size - self._capacity
 
     def _get_capacity(self, capacity):
-        # compute the number of leaf nodes to be used as memory.
+        # computes the number of leaf nodes to be used as memory.
         # we make the capacity a power of two to simplify the implementation.
         return 2 ** int(np.ceil(np.log(capacity) / np.log(2.0)))
 
     def _get_priority(self, experience_tuple):
-        # compute priority using proportional prioritization.
+        # computes priority using proportional prioritization.
         return (np.fabs(experience_tuple.td_err) + self._eps) ** self._alpha
 
     def _update_priorities(self, idx):
-        # recompute priorities for the nodes above index
+        # recomputes priorities for the nodes above index
         while idx != 0:
             idx = ((idx + 1) // 2) - 1 # go up to parent node; idx is at i//2 using 1-based indexing.
             idx_l = 2 * (idx + 1) - 1  # get left child; idx is at 2i using 1-based indexing.
