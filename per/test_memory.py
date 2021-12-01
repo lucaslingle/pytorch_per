@@ -42,14 +42,12 @@ class TestMemory(unittest.TestCase):
     def test_insert(self):
         idx = self.mem._expiration_idx
         self.mem.insert(self.et)
-        self.assertEqual(
-            self.mem._sumtree[idx].experience_tuple, self.et)
+        self.assertEqual(self.mem._sumtree[idx].experience_tuple, self.et)
 
         priority = self.mem._sumtree[idx].priority
         while idx != 0:
             idx = (idx+1) // 2 - 1
-            self.assertEqual(
-                self.mem._sumtree[idx].priority, priority)
+            self.assertEqual(self.mem._sumtree[idx].priority, priority)
 
     def test_sample_batch(self):
         self.mem.insert(self.et)
