@@ -29,13 +29,28 @@ class PrioritizedReplayMemory:
         self._expiration_idx = self._tree_size - self._capacity
 
     def _get_capacity(self, capacity):
-        # make capacity a power of two to simplify the implementation
+        # compute the number of leaf nodes to be used as memory.
+        # we make the capacity a power of two to simplify the implementation.
         return 2 ** int(np.ceil(np.log(capacity) / np.log(2.0)))
 
     def _get_priority(self, experience_tuple):
+        # compute priority using proportional prioritization.
         return (np.fabs(experience_tuple.td_err) + self._eps) ** self._alpha
 
+    def _update_priorities(self, idx):
+        # recompute priorities for the nodes above index
+        while idx != 0:
+            idx = ((idx + 1) // 2) - 1 # go up to parent node; idx is at i//2 using 1-based indexing.
+            idx_l = 2 * (idx + 1) - 1  # get left child; idx is at 2i using 1-based indexing.
+            idx_r = 2 * (idx + 1)      # get right child; idx is at 2i+1 using 1-based indexing.
+            sp_l = self._sumtree[idx_l].priority if self._sumtree[idx_l] else 0.0
+            sp_r = self._sumtree[idx_r].priority if self._sumtree[idx_r] else 0.0
+            self._sumtree[idx] = PrioritizedExperienceTuple(
+                priority=(sp_l + sp_r),
+                experience_tuple=None)
+
     def _step(self):
+        # steps the expiration index to the least recently written leaf index.
         experation_start_idx = self._tree_size - self._capacity
         memory_id = self._expiration_idx - experation_start_idx
         next_memory_id = (memory_id + 1) % self._capacity
@@ -43,45 +58,35 @@ class PrioritizedReplayMemory:
         self._total_steps += 1
 
     def insert(self, experience_tuple):
+        # inserts an experience tuple, updates upstream priorities,
+        # and steps the expiration index.
         priority = self._get_priority(experience_tuple)
         self._sumtree[self._expiration_idx] = PrioritizedExperienceTuple(
             priority=priority,
             experience_tuple=experience_tuple
         )
-
-        idx = self._expiration_idx
-        while idx != 0:
-            idx = ((idx + 1) // 2) - 1  # go up to parent node; idx is at i//2 using 1-based indexing.
-            idx_l = 2 * (idx + 1) - 1  # get left child; idx is at 2i using 1-based indexing.
-            idx_r = 2 * (idx + 1)      # get right child; idx is at 2i+1 using 1-based indexing.
-            sp_l = self._sumtree[idx_l].priority if self._sumtree[idx_l] else 0.0
-            sp_r = self._sumtree[idx_r].priority if self._sumtree[idx_r] else 0.0
-            self._sumtree[idx] = PrioritizedExperienceTuple(
-                priority=(sp_l + sp_r),
-                experience_tuple=None
-            )
+        self._update_priorities(self._expiration_idx)
         self._step()
 
     def sample(self, batch_size, debug=False):
+        # samples a batch of experience tuples of size batch_size.
         assert self._total_steps >= self._capacity or debug
         p_total = self._sumtree[0].priority
 
-        # uniform random numbers in range [0, p_total / k)
+        # get numbers in intervals
+        #     [0,p_tot/k], [p_tot/k,2*p_tot/k], [2*p_tot/k,3*p_tot/k], etc.
         unifs = np.random.uniform(low=0.0, high=1.0, size=batch_size)
         unifs *= p_total / float(batch_size)
 
-        # separate shift for each uniform random number
         shifts = np.ones(dtype=np.float32, shape=(batch_size,))
         shifts *= p_total / float(batch_size)
         shifts = np.cumsum(shifts)
         shifts -= p_total / float(batch_size)
 
-        # get numbers in intervals
-        #     [0,p_tot/k], [p_tot/k,2*p_tot/k], [2*p_tot/k,3*p_tot/k], etc.
         searches = unifs + shifts
 
         # search for memory_id in which each random query fell
-        # this is a form of stratified sampling; the marginal dist over samples
+        # this is a form of stratified sampling; note that the marginal dist over samples
         # with the batch_idx marginalized out matches the p.m.f. defined by the priorities.
         idxs = []
         tree_height = int(np.ceil(np.log(self._capacity) / np.log(2.0))) + 1
@@ -111,23 +116,18 @@ class PrioritizedReplayMemory:
         }
 
     def update_alpha(self, new_alpha):
+        # update priority exponent alpha.
         self._alpha = new_alpha
 
     def update_beta(self, new_beta):
+        # update importance-weight exponent beta.
         self._beta = new_beta
 
     def update_td_errs(self, idxs, td_errs):
+        # update td errors and associated priorities.
         for i, e in zip(idxs, td_errs):
             pt = self._sumtree[i]
-            assert pt is not None
-            p_old = pt.priority
-
-            pt.experience_tuple.td_err = e
-            p_new = self._get_priority(pt.experience_tuple)
-            pt.priority = p_new
-
-            priority_delta = p_new - p_old
-            idx = i
-            while idx != 0:
-                idx = (idx + 1) // 2 - 1
-                self._sumtree[idx].priority += priority_delta
+            et = pt.experience_tuple
+            et.td_err = e
+            pt.priority = self._get_priority(et)
+            self._update_priorities(i)
