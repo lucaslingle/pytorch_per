@@ -70,9 +70,9 @@ class TestMemory(unittest.TestCase):
         for idx, sp in zip(parent_idxs, sps):
             self.assertEqual(self.mem._sumtree[idx].priority, sp)
 
-    def test_sample_batch(self):
+    def test_sample(self):
         self.mem.insert(self.et)
-        results = self.mem.sample_batch(batch_size=1, debug=True)
+        results = self.mem.sample(batch_size=1, debug=True)
         self.assertEqual(results['indices'][0], self.mem._tree_size-self.mem._capacity)
         self.assertEqual(results['data'][0], self.et)
 
