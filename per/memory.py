@@ -50,7 +50,7 @@ class PrioritizedReplayMemory:
                 experience_tuple=None)
 
     def _step(self):
-        # steps the expiration index to the least recently written leaf index.
+        # steps the expiration index to the next leaf.
         experation_start_idx = self._tree_size - self._capacity
         memory_id = self._expiration_idx - experation_start_idx
         next_memory_id = (memory_id + 1) % self._capacity
