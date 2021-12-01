@@ -1,10 +1,10 @@
 """
-Unit tests for memory.py
+Unit tests for replay_memory.py
 """
 
 import unittest
 
-from per.memory import (
+from per.algos.common.replay_memory import (
     ExperienceTuple,
     PrioritizedReplayMemory,
 )
