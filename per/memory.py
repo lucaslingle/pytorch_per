@@ -122,7 +122,7 @@ class PrioritizedReplayMemory:
     def update_alpha(self, new_alpha):
         self._alpha = new_alpha
 
-    def new_beta(self, new_beta):
+    def update_beta(self, new_beta):
         self._beta = new_beta
 
     def update_td_errs(self, idxs, td_errs):
