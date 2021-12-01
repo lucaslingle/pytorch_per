@@ -29,16 +29,17 @@ class PrioritizedReplayMemory:
         self._expiration_idx = self._tree_size - self._capacity
 
     def _get_capacity(self, capacity):
-        # computes the number of leaf nodes to be used as memory.
-        # we make the capacity a power of two to simplify the implementation.
+        """computes the number of leaf nodes to be used as memory.
+           we make the capacity a power of two to simplify the implementation.
+        """
         return 2 ** int(np.ceil(np.log(capacity) / np.log(2.0)))
 
     def _get_priority(self, experience_tuple):
-        # computes priority using proportional prioritization.
+        """computes priority using proportional prioritization."""
         return (np.fabs(experience_tuple.td_err) + self._eps) ** self._alpha
 
     def _update_priorities(self, idx):
-        # recomputes priorities for the nodes above index
+        """recomputes priorities for the nodes above index."""
         while idx != 0:
             idx = ((idx + 1) // 2) - 1      # go up to parent node
             idx_l = 2 * (idx + 1) - 1       # get its left child
@@ -50,7 +51,7 @@ class PrioritizedReplayMemory:
                 experience_tuple=None)
 
     def _step(self):
-        # steps the expiration index to the least recently written leaf index.
+        """steps the expiration index to the least-recently created leaf."""
         experation_start_idx = self._tree_size - self._capacity
         memory_id = self._expiration_idx - experation_start_idx
         next_memory_id = (memory_id + 1) % self._capacity
@@ -58,8 +59,9 @@ class PrioritizedReplayMemory:
         self._total_steps += 1
 
     def insert(self, experience_tuple):
-        # inserts an experience tuple, updates upstream priorities,
-        # and steps the expiration index.
+        """inserts an experience tuple, updates upstream priorities,
+           and steps the expiration index
+        """
         priority = self._get_priority(experience_tuple)
         self._sumtree[self._expiration_idx] = PrioritizedExperienceTuple(
             priority=priority,
@@ -69,7 +71,7 @@ class PrioritizedReplayMemory:
         self._step()
 
     def sample(self, batch_size, debug=False):
-        # samples a batch of experience tuples of size batch_size.
+        """samples a batch of experience tuples of size batch_size."""
         assert self._total_steps >= self._capacity or debug
         p_total = self._sumtree[0].priority
 
@@ -112,15 +114,15 @@ class PrioritizedReplayMemory:
         }
 
     def update_alpha(self, new_alpha):
-        # updates priority exponent alpha.
+        """updates priority exponent alpha."""
         self._alpha = new_alpha
 
     def update_beta(self, new_beta):
-        # updates importance weight exponent beta.
+        """updates importance weight exponent beta."""
         self._beta = new_beta
 
     def update_td_errs(self, idxs, td_errs):
-        # updates td errors and associated priorities.
+        """updates td errors and associated priorities."""
         for i, e in zip(idxs, td_errs):
             pt = self._sumtree[i]
             pt.experience_tuple.td_err = e
