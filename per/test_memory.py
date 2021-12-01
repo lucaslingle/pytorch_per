@@ -17,9 +17,9 @@ class TestMemory(unittest.TestCase):
         #   3 4 5 6
         # 78910 11121314
         self.mem = PrioritizedReplayMemory(
-            capacity=8, alpha=1.0, beta=1.0, eps=0.0)
+            capacity=8, alpha=1.0, beta=1.0, eps=0.01)
         self.et = ExperienceTuple(
-            s_t=0, a_t=0, r_t=0.0, s_tp1=1, td_err=1.0)
+            s_t=0, a_t=0, r_t=0.0, s_tp1=1, td_err=0.0)
 
     def test_capacity(self):
         mem = PrioritizedReplayMemory(
@@ -40,16 +40,39 @@ class TestMemory(unittest.TestCase):
         self.assertEqual(self.mem._expiration_idx, 7)
 
     def test_insert(self):
+        # test write occurs at expiration index
         idx = self.mem._expiration_idx
         self.mem.insert(self.et)
         self.assertEqual(
             self.mem._sumtree[idx].experience_tuple, self.et)
 
+        # test that the priority is added to all parent nodes in the tree
         priority = self.mem._sumtree[idx].priority
         while idx != 0:
             idx = (idx+1) // 2 - 1
             self.assertEqual(
                 self.mem._sumtree[idx].priority, priority)
+
+        # test that the priority is updated correctly after a tuple expires
+        for i in range(1, self.mem._capacity):
+            # add capacity-1 additional experience tuples
+            et = ExperienceTuple(
+                s_t=0, a_t=0, r_t=0.0, s_tp1=1, td_err=float(i))
+            self.mem.insert(et)
+
+        et = ExperienceTuple(
+            s_t=0, a_t=0, r_t=0.0, s_tp1=1, td_err=float(self.mem._capacity))
+        self.mem.insert(et)
+        sps = [
+            self.mem._sumtree[7].priority + self.mem._sumtree[8].priority,
+            self.mem._sumtree[3].priority + self.mem._sumtree[4].priority,
+            self.mem._sumtree[1].priority + self.mem._sumtree[2].priority
+        ]
+        parent_idxs = [3, 1, 0]
+
+        for i in range(3):
+            self.assertEqual(
+                self.mem._sumtree[parent_idxs[i]].priority, sps[i])
 
     def test_sample_batch(self):
         self.mem.insert(self.et)
