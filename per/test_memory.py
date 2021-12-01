@@ -59,7 +59,7 @@ class TestMemory(unittest.TestCase):
         mem.insert(et)
         results = mem.sample_batch(batch_size=1, debug=True)
         self.assertEqual(results[0][0], mem._tree_size-mem._capacity)
-        self.assertEqual(results[0][1], et)
+        self.assertEqual(results[1][0], et)
 
 
 if __name__ == '__main__':
