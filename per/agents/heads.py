@@ -61,7 +61,7 @@ class DuelingActionValueHead(tc.nn.Module):
                 tc.nn.init.xavier_normal_(m.weight)
 
     def forward(self, x):
-        vpred = self._value_head(x).unsqueeze(-1)
+        vpred = self._value_head(x)
         apred = self._advantage_head(x)
         apred -= apred.mean(dim=-1).unsqueeze(-1)
         qpred = vpred + apred
