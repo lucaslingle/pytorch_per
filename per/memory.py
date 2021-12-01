@@ -75,14 +75,10 @@ class PrioritizedReplayMemory:
 
         # get numbers in intervals
         #     [0,p_tot/k), [p_tot/k,2*p_tot/k), [2*p_tot/k,3*p_tot/k), etc.
-        shifts = np.ones(dtype=np.float32, shape=(batch_size,))
+        shifts = np.arange(start=0, stop=batch_size, dtype=np.float32)
         shifts *= p_total / float(batch_size)
-        shifts = np.cumsum(shifts)
-        shifts -= p_total / float(batch_size)
-
         unifs = np.random.uniform(low=0.0, high=1.0, size=batch_size)
         unifs *= p_total / float(batch_size)
-
         searches = shifts + unifs
 
         # search for memory_id in which each random query fell
