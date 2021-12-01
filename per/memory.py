@@ -108,8 +108,7 @@ class PrioritizedReplayMemory:
                     idx = idx_l
             sampled_idxs.append(idx)
 
-        experience_tuples = list(
-            self._sumtree[idx].experience_tuple for idx in sampled_idxs
-        )
-        return sampled_idxs, experience_tuples
-
+        return {
+            "indices": sampled_idxs,
+            "data": [self._sumtree[idx].experience_tuple for idx in sampled_idxs]
+        }
