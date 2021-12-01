@@ -67,8 +67,8 @@ class TestMemory(unittest.TestCase):
             self.mem._sumtree[3].priority + self.mem._sumtree[4].priority,
             self.mem._sumtree[1].priority + self.mem._sumtree[2].priority
         ]
-        for idx, priority in zip(parent_idxs, sps):
-            self.assertEqual(self.mem._sumtree[idx].priority, priority)
+        for idx, sp in zip(parent_idxs, sps):
+            self.assertEqual(self.mem._sumtree[idx].priority, sp)
 
     def test_sample_batch(self):
         self.mem.insert(self.et)
