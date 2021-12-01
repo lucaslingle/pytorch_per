@@ -32,7 +32,7 @@ class PrioritizedReplayMemory:
         # make capacity a power of two to simplify the implementation
         return 2 ** int(np.ceil(np.log(capacity) / np.log(2.0)))
 
-    def _get_priority(self, experience_tuple: ExperienceTuple):
+    def _get_priority(self, experience_tuple):
         return (np.fabs(experience_tuple.td_err) + self._eps) ** self._alpha
 
     def _step(self):
@@ -42,7 +42,7 @@ class PrioritizedReplayMemory:
         self._expiration_idx = experation_start_idx + next_memory_id
         self._total_steps += 1
 
-    def insert(self, experience_tuple: ExperienceTuple):
+    def insert(self, experience_tuple):
         priority = self._get_priority(experience_tuple)
         priority_delta = priority
         if self._sumtree[self._expiration_idx] is not None:
@@ -92,7 +92,7 @@ class PrioritizedReplayMemory:
         # search for memory_id in which each random query fell
         # this is a form of stratified sampling; the marginal dist over samples
         # with the batch_idx marginalized out matches the p.m.f. defined by the priorities.
-        sampled_idxs = []
+        idxs = []
         tree_height = int(np.ceil(np.log(self._capacity) / np.log(2.0))) + 1
         for i in range(batch_size):
             sp_offset = 0.0
@@ -106,9 +106,37 @@ class PrioritizedReplayMemory:
                     sp_offset += sp_l
                 else:
                     idx = idx_l
-            sampled_idxs.append(idx)
+            idxs.append(idx)
 
+        indices = idxs
+        data = [self._sumtree[i].experience_tuple for i in idxs]
+        weights = [self._sumtree[i].priority ** (-self._beta) for i in idxs]
+        max_w = max(weights)
+        weights = [w / max_w for w in weights]
         return {
-            "indices": sampled_idxs,
-            "data": [self._sumtree[idx].experience_tuple for idx in sampled_idxs]
+            "indices": indices,
+            "data": data,
+            "weights": weights
         }
+
+    def update_alpha(self, new_alpha):
+        self._alpha = new_alpha
+
+    def new_beta(self, new_beta):
+        self._beta = new_beta
+
+    def update_td_errs(self, idxs, td_errs):
+        for i, e in zip(idxs, td_errs):
+            pt = self._sumtree[i]
+            assert pt is not None
+            p_old = pt.priority
+
+            pt.experience_tuple.td_err = e
+            p_new = self._get_priority(pt.experience_tuple)
+            pt.priority = p_new
+
+            priority_delta = p_new - p_old
+            idx = i
+            while idx != 0:
+                idx = (idx + 1) // 2 - 1
+                self._sumtree[idx].priority += priority_delta
