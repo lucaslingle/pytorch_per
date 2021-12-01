@@ -29,7 +29,7 @@ class DuelingActionValueHead(tc.nn.Module):
         self._value_head = tc.nn.Sequential(
             tc.nn.Linear(
                 in_features=self._num_features,
-                out_features=self._num_actions,
+                out_features=self._num_features,
                 bias=True),
             tc.nn.ReLU(),
             tc.nn.Linear(
@@ -41,7 +41,7 @@ class DuelingActionValueHead(tc.nn.Module):
         self._advantage_head = tc.nn.Sequential(
             tc.nn.Linear(
                 in_features=self._num_features,
-                out_features=self._num_actions,
+                out_features=self._num_features,
                 bias=True),
             tc.nn.ReLU(),
             tc.nn.Linear(
