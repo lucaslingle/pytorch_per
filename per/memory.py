@@ -55,12 +55,12 @@ class PrioritizedReplayMemory:
 
         idx = self._expiration_idx
         while idx != 0:
-            idx = ((idx + 1) // 2) - 1  # parent idx is at i//2 using base-1 indexing.
+            idx = ((idx + 1) // 2) - 1  # parent idx is at i//2 using 1-based indexing.
             if self._sumtree[idx] is not None:
                 self._sumtree[idx].priority += priority_delta
             else:
-                idx_l = 2 * (idx + 1) - 1  # left child of current node is at 2i using base-1 indexing.
-                idx_r = 2 * (idx + 1)      # right child of current node is at 2i+1 using base-1 indexing.
+                idx_l = 2 * (idx + 1) - 1  # left child of current node is at 2i using 1-based indexing.
+                idx_r = 2 * (idx + 1)      # right child of current node is at 2i+1 using 1-based indexing.
                 node_l = self._sumtree[idx_l]
                 node_r = self._sumtree[idx_r]
                 sp_l = 0.0 if node_l is None else node_l.priority
