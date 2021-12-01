@@ -73,7 +73,7 @@ class PrioritizedReplayMemory:
         assert self._total_steps >= self._capacity or debug
         p_total = self._sumtree[0].priority
 
-        # get numbers in intervals
+        # get uniform random numbers in intervals
         #     [0,p_tot/k), [p_tot/k,2*p_tot/k), [2*p_tot/k,3*p_tot/k), etc.
         shifts = np.arange(start=0, stop=batch_size, dtype=np.float32)
         shifts *= p_total / float(batch_size)
