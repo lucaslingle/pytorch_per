@@ -40,9 +40,9 @@ class PrioritizedReplayMemory:
     def _update_priorities(self, idx):
         # recomputes priorities for the nodes above index
         while idx != 0:
-            idx = ((idx + 1) // 2) - 1 # go up to parent node; its index is at i//2 using 1-based indexing.
-            idx_l = 2 * (idx + 1) - 1  # get left child; its index is at 2i using 1-based indexing.
-            idx_r = 2 * (idx + 1)      # get right child; its index is at 2i+1 using 1-based indexing.
+            idx = ((idx + 1) // 2) - 1      # go up to parent node
+            idx_l = 2 * (idx + 1) - 1       # get its left child
+            idx_r = 2 * (idx + 1)           # get its right child
             sp_l = self._sumtree[idx_l].priority if self._sumtree[idx_l] else 0.0
             sp_r = self._sumtree[idx_r].priority if self._sumtree[idx_r] else 0.0
             self._sumtree[idx] = PrioritizedExperienceTuple(
