@@ -44,10 +44,6 @@ class PrioritizedReplayMemory:
 
     def insert(self, experience_tuple):
         priority = self._get_priority(experience_tuple)
-        priority_delta = priority
-        if self._sumtree[self._expiration_idx] is not None:
-            priority_delta -= self._sumtree[self._expiration_idx].priority
-
         self._sumtree[self._expiration_idx] = PrioritizedExperienceTuple(
             priority=priority,
             experience_tuple=experience_tuple
@@ -55,20 +51,15 @@ class PrioritizedReplayMemory:
 
         idx = self._expiration_idx
         while idx != 0:
-            idx = ((idx + 1) // 2) - 1  # parent idx is at i//2 using 1-based indexing.
-            if self._sumtree[idx] is not None:
-                self._sumtree[idx].priority += priority_delta
-            else:
-                idx_l = 2 * (idx + 1) - 1  # left child of current node is at 2i using 1-based indexing.
-                idx_r = 2 * (idx + 1)      # right child of current node is at 2i+1 using 1-based indexing.
-                node_l = self._sumtree[idx_l]
-                node_r = self._sumtree[idx_r]
-                sp_l = node_l.priority if node_l else 0.0
-                sp_r = node_r.priority if node_r else 0.0
-                self._sumtree[idx] = PrioritizedExperienceTuple(
-                    priority=(sp_l + sp_r),
-                    experience_tuple=None
-                )
+            idx = ((idx + 1) // 2) - 1  # go up to parent node; idx is at i//2 using 1-based indexing.
+            idx_l = 2 * (idx + 1) - 1  # get left child; idx is at 2i using 1-based indexing.
+            idx_r = 2 * (idx + 1)      # get right child; idx is at 2i+1 using 1-based indexing.
+            sp_l = self._sumtree[idx_l].priority if self._sumtree[idx_l] else 0.0
+            sp_r = self._sumtree[idx_r].priority if self._sumtree[idx_r] else 0.0
+            self._sumtree[idx] = PrioritizedExperienceTuple(
+                priority=(sp_l + sp_r),
+                experience_tuple=None
+            )
         self._step()
 
     def sample(self, batch_size, debug=False):
