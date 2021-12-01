@@ -40,20 +40,19 @@ class TestMemory(unittest.TestCase):
         self.assertEqual(self.mem._expiration_idx, 7)
 
     def test_insert(self):
-        # test write occurs at expiration index
+        ### test write occurs at expiration index
         idx = self.mem._expiration_idx
         self.mem.insert(self.et)
         self.assertEqual(
             self.mem._sumtree[idx].experience_tuple, self.et)
 
-        # test that the priority is added to all parent nodes in the tree
+        ### test that the priority is added to all parent nodes in the tree
         priority = self.mem._sumtree[idx].priority
-        while idx != 0:
-            idx = (idx+1) // 2 - 1
-            self.assertEqual(
-                self.mem._sumtree[idx].priority, priority)
+        parent_idxs = [3, 1, 0]
+        for idx in parent_idxs:
+            self.assertEqual(self.mem._sumtree[idx].priority, priority)
 
-        # test that the priority is updated correctly after a tuple expires
+        ### test that the priority is updated correctly after a tuple expires
         for i in range(1, self.mem._capacity):
             # add capacity-1 additional experience tuples
             et = ExperienceTuple(
@@ -68,11 +67,8 @@ class TestMemory(unittest.TestCase):
             self.mem._sumtree[3].priority + self.mem._sumtree[4].priority,
             self.mem._sumtree[1].priority + self.mem._sumtree[2].priority
         ]
-        parent_idxs = [3, 1, 0]
-
-        for i in range(3):
-            self.assertEqual(
-                self.mem._sumtree[parent_idxs[i]].priority, sps[i])
+        for idx, priority in zip(parent_idxs, sps):
+            self.assertEqual(self.mem._sumtree[idx].priority, priority)
 
     def test_sample_batch(self):
         self.mem.insert(self.et)
