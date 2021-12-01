@@ -116,7 +116,7 @@ class PrioritizedReplayMemory:
         self._alpha = new_alpha
 
     def update_beta(self, new_beta):
-        # updates importance-weight exponent beta.
+        # updates importance weight exponent beta.
         self._beta = new_beta
 
     def update_td_errs(self, idxs, td_errs):
