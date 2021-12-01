@@ -29,7 +29,7 @@ class PrioritizedReplayMemory:
         self._expiration_idx = self._tree_size - self._capacity
 
     def _get_capacity(self, capacity):
-        # computes the number of leaf nodes to be used as common.
+        # computes the number of leaf nodes to be used as replay.
         # we make the capacity a power of two to simplify the implementation.
         return 2 ** int(np.ceil(np.log(capacity) / np.log(2.0)))
 
