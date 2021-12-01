@@ -94,13 +94,13 @@ class PrioritizedReplayMemory:
         # with the batch_idx marginalized out matches the p.m.f. defined by the priorities.
         idxs = []
         tree_height = int(np.ceil(np.log(self._capacity) / np.log(2.0))) + 1
-        for i in range(batch_size):
+        for search in searches:
             sp_offset = 0.0
             idx = 0
             for _ in range(0, tree_height-1):
                 idx_l = 2 * (idx + 1) - 1
                 sp_l = self._sumtree[idx_l].priority
-                if searches[i] >= sp_offset + sp_l:
+                if search >= sp_offset + sp_l:
                     idx_r = 2 * (idx + 1)
                     idx = idx_r
                     sp_offset += sp_l
