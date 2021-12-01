@@ -123,7 +123,6 @@ class PrioritizedReplayMemory:
         # update td errors and associated priorities.
         for i, e in zip(idxs, td_errs):
             pt = self._sumtree[i]
-            et = pt.experience_tuple
-            et.td_err = e
-            pt.priority = self._get_priority(et)
+            pt.experience_tuple.td_err = e
+            pt.priority = self._get_priority(pt.experience_tuple)
             self._update_priorities(i)
