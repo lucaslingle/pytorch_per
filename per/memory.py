@@ -97,7 +97,6 @@ class PrioritizedReplayMemory:
         for i in range(batch_size):
             sp_offset = 0.0
             idx = 0
-
             for _ in range(0, tree_height-1):
                 idx_l = 2 * (idx + 1) - 1
                 sp_l = self._sumtree[idx_l].priority
