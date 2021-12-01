@@ -61,10 +61,8 @@ class PrioritizedReplayMemory:
             else:
                 idx_l = 2 * (idx + 1) - 1  # left child of current node is at 2i using 1-based indexing.
                 idx_r = 2 * (idx + 1)      # right child of current node is at 2i+1 using 1-based indexing.
-                node_l = self._sumtree[idx_l]
-                node_r = self._sumtree[idx_r]
-                sp_l = node_l.priority if node_l else 0.0
-                sp_r = node_r.priority if node_r else 0.0
+                sp_l = self._sumtree[idx_l].priority if self._sumtree[idx_l] else 0.0
+                sp_r = self._sumtree[idx_r].priority if self._sumtree[idx_r] else 0.0
                 self._sumtree[idx] = PrioritizedExperienceTuple(
                     priority=(sp_l + sp_r),
                     experience_tuple=None
