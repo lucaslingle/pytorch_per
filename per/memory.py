@@ -30,7 +30,7 @@ class PrioritizedReplayMemory:
 
     def _get_capacity(self, capacity):
         # make capacity a power of two to simplify the implementation
-        return 2 ** np.ceil(np.log(capacity) / np.log(2.0))
+        return 2 ** int(np.ceil(np.log(capacity) / np.log(2.0)))
 
     def _get_priority(self, experience_tuple: ExperienceTuple):
         return (np.fabs(experience_tuple.td_err) + self._eps) ** self._alpha
@@ -71,8 +71,8 @@ class PrioritizedReplayMemory:
                 )
         self._step()
 
-    def sample_batch(self, batch_size):
-        assert self._total_steps >= self._capacity
+    def sample_batch(self, batch_size, debug=False):
+        assert debug or self._total_steps >= self._capacity
         p_total = self._sumtree[0].priority
 
         # uniform random numbers in range [0, p_total / k)
@@ -93,10 +93,12 @@ class PrioritizedReplayMemory:
         # this is a form of stratified sampling; the marginal dist over samples
         # with the batch_idx marginalized out matches the p.m.f. defined by the priorities.
         sampled_idxs = []
+        tree_height = int(np.ceil(np.log(self._capacity) / np.log(2.0))) + 1
         for i in range(batch_size):
             sp_offset = 0.0
             idx = 0
-            for _ in range(0, np.ceil(np.log(self._capacity) / np.log(2.0))):
+
+            for _ in range(0, tree_height-1):
                 idx_l = 2 * (idx + 1) - 1
                 sp_l = self._sumtree[idx_l].priority
                 if searches[i] >= sp_offset + sp_l:
@@ -107,7 +109,7 @@ class PrioritizedReplayMemory:
                     idx = idx_l
             sampled_idxs.append(idx)
         return [
-            self._sumtree[idx].experience_tuple for idx in sampled_idxs
+            (idx, self._sumtree[idx].experience_tuple) for idx in sampled_idxs
         ]
 
 
