@@ -69,12 +69,12 @@ def training_loop(
     while t < max_env_steps_per_process:
         # collect data...
         for _ in range(num_env_steps_per_policy_update):
-            # update annealed constants.
+            ### update annealed constants.
             alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
             beta_t = beta_annealing_fn(t, max_env_steps_per_process)
             eps_t = epsilon_anneal_fn(t, max_env_steps_per_process)
 
-            # act.
+            ### act.
             a_t = q_network.sample(
                 x=tc.FloatTensor(o_t).unsqueeze(0),
                 epsilon=eps_t)
@@ -84,7 +84,7 @@ def training_loop(
                 o_tp1 = env.reset()
             d_t = float(d_t)
 
-            # compute td error.
+            ### compute td error.
             td_err = compute_td_errs(
                 q_network=q_network,
                 target_network=target_network,
@@ -97,7 +97,7 @@ def training_loop(
                 double_dqn=double_dqn)
             td_err = td_err.squeeze(0).detach().numpy()
 
-            # add experience tuple to replay memory.
+            ### add experience tuple to replay memory.
             experience_tuple = ExperienceTuple(
                 s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1,
                 td_err=td_err)
