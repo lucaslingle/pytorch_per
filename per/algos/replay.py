@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 
 
@@ -12,10 +14,23 @@ class ExperienceTuple:
 
 
 class PrioritizedExperienceTuple:
-    def __init__(self, experience_tuple, summed_priority, max_priority):
+    def __init__(
+            self,
+            experience_tuple: Optional[ExperienceTuple],
+            summed_priority: float,
+            max_priority: float
+    ):
+        """
+        A node in the sumtree datastructure, which is basically a binary maxheap
+        with sum tracking of the left and right child nodes added on.
+
+        :param experience_tuple: experience tuple in leaf nodes, or None.
+        :param summed_priority: priority for replay in leaf nodes, else sum thereof.
+        :param max_priority: priority in leaf nodes, else max thereof.
+        """
         self.experience_tuple = experience_tuple
-        self.summed_priority = summed_priority  # summed priority is priority for replay
-        self.max_priority = max_priority        # max priority is for tracking max priority
+        self.summed_priority = summed_priority
+        self.max_priority = max_priority
 
 
 class PrioritizedReplayMemory:
