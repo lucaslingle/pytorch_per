@@ -7,6 +7,15 @@ from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 
 
+@tc.no_grad()
+def update_target_network(
+        q_network: QNetwork,
+        target_network: QNetwork
+):
+    for dest, src in zip(target_network.parameters(), q_network.parameters()):
+        dest.copy_(src)
+
+
 def compute_td_errs(
         q_network: QNetwork,
         target_network: QNetwork,
@@ -79,21 +88,11 @@ def training_loop(
     while t < max_env_steps_per_process:
         # collect data...
         for _ in range(num_env_steps_per_policy_update):
+            ### maybe update target network.
             if t > 0 and t % target_update_interval == 0:
-                """
-                we may want to be be extra careful here 
-                and load the checkpointed q network state dict into the target network
-                not just the state dict from the q network directly. 
-                
-                some ambiguity about whether it will track the changes 
-                in the q network if loaded directly...
-                
-                see https://pytorch.org/tutorials/beginner/saving_loading_models.html 
-                note reading "if you only plan..." 
-                
-                test this out to double check. 
-                """
-                pass
+                update_target_network(
+                    q_network=q_network,
+                    target_network=target_network)
 
             ### update annealed constants.
             alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
@@ -104,8 +103,9 @@ def training_loop(
             a_t = q_network.sample(
                 x=tc.FloatTensor(o_t).unsqueeze(0),
                 epsilon=eps_t)
-            o_tp1, r_t, d_t, _ = env.step(
-                action=a_t.squeeze(0).detach().numpy())
+            a_t = a_t.squeeze(0).detach().numpy()
+
+            o_tp1, r_t, d_t, _ = env.step(action=a_t)
             if d_t:
                 o_tp1 = env.reset()
             d_t = float(d_t)
