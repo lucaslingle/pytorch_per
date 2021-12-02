@@ -155,7 +155,7 @@ def training_loop(
 ):
     o_t = env.reset()
     for t in range(t0, max_env_steps_per_process):
-        ### update target network?
+        ### maybe update target network.
         if t > 0 and t % target_update_interval == 0:
             update_target_network(
                 q_network=q_network,
@@ -184,7 +184,7 @@ def training_loop(
         replay_memory.update_beta(beta_t)
         replay_memory.insert(experience_tuple_t)
 
-        ### learn?
+        ### maybe learn.
         if t > 0 and t % num_env_steps_per_policy_update == 0:
             # TODO(lucaslingle):
             #      check replay memory has at least min entries before learning,
