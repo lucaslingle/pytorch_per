@@ -15,8 +15,7 @@ def compute_td_errs(
         qs_tp1_tgt = target_network(o_tp1)
         qs_tp1 = q_network(o_tp1)
         argmax_a_tp1 = tc.argmax(qs_tp1, dim=-1)
-        q_tp1_tgt = tc.gather(
-            input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1)
+        q_tp1_tgt = tc.gather(input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1)
         y_t = r_t + (1. - d_t) * gamma * q_tp1_tgt
 
         qs_t = q_network(o_t)
