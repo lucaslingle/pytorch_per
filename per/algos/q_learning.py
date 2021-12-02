@@ -52,14 +52,14 @@ def training_loop(
                 q_tp1_tgt = q_tp1_tgt.squeeze(0).detach().numpy()
                 q_t = q_t.squeeze(0).detach().numpy()
                 y_t = r_t + gamma * q_tp1_tgt
-                td_err = (y_t - q_t) ** 2.0
+                td_err = y_t - q_t
             else:
                 qs_tp1_tgt = target_network(tc.FloatTensor(o_tp1).unsqueeze(0))
                 q_tp1_tgt = tc.max(qs_tp1_tgt)
                 q_tp1_tgt = q_tp1_tgt.squeeze(0).detach().numpy()
                 q_t = q_t.squeeze(0).detach().numpy()
                 y_t = r_t + gamma * q_tp1_tgt
-                td_err = (y_t - q_t) ** 2.0
+                td_err = y_t - q_t
 
             ### add experience tuple to replay memory.
             experience_tuple = ExperienceTuple(
