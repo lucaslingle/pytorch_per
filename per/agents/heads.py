@@ -27,27 +27,15 @@ class DuelingActionValueHead(tc.nn.Module):
         self._num_actions = num_actions
 
         self._value_head = tc.nn.Sequential(
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=self._num_features,
-                bias=True),
+            tc.nn.Linear(self._num_features, self._num_features, bias=True),
             tc.nn.ReLU(),
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=1,
-                bias=True)
+            tc.nn.Linear(self._num_features, 1, bias=True)
         )
 
         self._advantage_head = tc.nn.Sequential(
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=self._num_features,
-                bias=True),
+            tc.nn.Linear(self._num_features, self._num_features, bias=True),
             tc.nn.ReLU(),
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=self._num_actions,
-                bias=False)
+            tc.nn.Linear(self._num_features, self._num_actions, bias=False)
         )
 
         self._init_weights()
