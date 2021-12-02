@@ -2,10 +2,37 @@ from typing import Optional, Callable
 
 import torch as tc
 import gym
-import numpy as np
 
 from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
+
+
+def compute_td_errs(
+        q_network, target_network, mb_o_t, mb_a_t, mb_r_t, gamma, mb_o_tp1,
+        double_dqn
+):
+    if double_dqn:
+        mb_qs_t = q_network(mb_o_t)
+        mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
+
+        mb_qs_tp1_tgt = target_network(mb_o_tp1)
+        mb_qs_tp1 = q_network(mb_o_tp1)
+        mb_argmax_a_tp1 = tc.argmax(mb_qs_tp1, dim=-1)
+        mb_q_tp1_tgt = tc.gather(
+            input=mb_qs_tp1_tgt, dim=-1, index=mb_argmax_a_tp1)
+
+        mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
+        mb_td_err = mb_y_t.detach() - mb_q_t
+    else:
+        mb_qs_t = q_network(mb_o_t)
+        mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
+
+        mb_qs_tp1_tgt = target_network(mb_o_tp1)
+        mb_q_tp1_tgt = tc.max(mb_qs_tp1_tgt, dim=-1)
+
+        mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
+        mb_td_err = mb_y_t.detach() - mb_q_t
+    return mb_td_err
 
 
 def extract_field(experience_tuples, field_name, dtype):
@@ -56,22 +83,16 @@ def training_loop(
                 o_tp1 = env.reset()
 
             ### compute td error.
-            if double_dqn:
-                qs_tp1_tgt = target_network(tc.FloatTensor(o_tp1).unsqueeze(0))
-                qs_tp1 = q_network(tc.FloatTensor(o_tp1).unsqueeze(0))
-                argmax_a_tp1 = tc.argmax(qs_tp1, dim=-1)
-                q_tp1_tgt = tc.gather(input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1)
-                q_tp1_tgt = q_tp1_tgt.squeeze(0).detach().numpy()
-                q_t = q_t.squeeze(0).detach().numpy()
-                y_t = r_t + gamma * q_tp1_tgt
-                td_err = y_t - q_t
-            else:
-                qs_tp1_tgt = target_network(tc.FloatTensor(o_tp1).unsqueeze(0))
-                q_tp1_tgt = tc.max(qs_tp1_tgt, dim=-1)
-                q_tp1_tgt = q_tp1_tgt.squeeze(0).detach().numpy()
-                q_t = q_t.squeeze(0).detach().numpy()
-                y_t = r_t + gamma * q_tp1_tgt
-                td_err = y_t - q_t
+            td_err = compute_td_errs(
+                q_network=q_network,
+                target_network=target_network,
+                mb_o_t=tc.FloatTensor(o_t).unsqueeze(0),
+                mb_a_t=tc.FloatTensor(a_t).unsqueeze(0),
+                mb_r_t=tc.FloatTensor(r_t).unsqueeze(0),
+                gamma=gamma,
+                mb_o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
+                double_dqn=double_dqn)
+            td_err = td_err.squeeze(0).detach().numpy()
 
             ### add experience tuple to replay memory.
             experience_tuple = ExperienceTuple(
@@ -81,31 +102,20 @@ def training_loop(
 
         for _ in range(batches_per_policy_update):
             samples = replay_memory.sample(batch_size=batch_size)
-            mb_o_t = extract_field(samples['data'], 's_t', 'float')
-            mb_a_t = extract_field(samples['data'], 'a_t', 'long')
-            mb_r_t = extract_field(samples['data'], 'r_t', 'float')
-            mb_o_tp1 = extract_field(samples['data'], 's_tp1', 'float')
-            if double_dqn:
-                mb_qs_tp1_tgt = target_network(mb_o_tp1)
-                mb_qs_tp1 = q_network(mb_o_tp1)
-                mb_argmax_a_tp1 = tc.argmax(mb_qs_tp1, dim=-1)
-                mb_q_tp1_tgt = tc.gather(
-                    input=mb_qs_tp1_tgt, dim=-1, index=mb_argmax_a_tp1)
+            mb_td_err = compute_td_errs(
+                q_network=q_network,
+                target_network=target_network,
+                mb_o_t=extract_field(samples['data'], 's_t', 'float'),
+                mb_a_t=extract_field(samples['data'], 'a_t', 'long'),
+                mb_r_t=extract_field(samples['data'], 'r_t', 'float'),
+                gamma=gamma,
+                mb_o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
+                double_dqn=double_dqn)
 
-                mb_qs_t = q_network(mb_o_t)
-                mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
-                mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
-                mb_td_err = mb_y_t - mb_q_t
-            else:
-                mb_qs_tp1_tgt = target_network(mb_o_tp1)
-                mb_q_tp1_tgt = tc.max(mb_qs_tp1_tgt, dim=-1)
-                mb_qs_t = q_network(mb_o_t)
-                mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
-                mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
-                mb_td_err = mb_y_t - mb_q_t
-
-            updated_td_errs = tc.unbind(mb_td_err, dim=0)
             replay_memory.update_td_errs(
-                idxs=samples['indices'], td_errs=updated_td_errs)
+                idxs=samples['indices'],
+                td_errs=list(mb_td_err.detach().numpy()))
 
-
+            # TODO(lucaslingle):
+            #   add smooth l1 loss for mb_td_err terms.
+            #   note that they're differentiable w.r.t. params of q_network.
