@@ -16,17 +16,33 @@ def update_target_network(
         dest.copy_(src)
 
 
+def extract_field(
+        experience_tuples: List[ExperienceTuple],
+        field_name: str,
+        dtype: str
+):
+    assert dtype in ['float', 'long']
+    lt = list(map(lambda et: getattr(et, field_name), experience_tuples))
+    tn = tc.stack(lt, dim=0)
+    if dtype == 'float':
+        return tc.FloatTensor(tn)
+    if dtype == 'long':
+        return tc.LongTensor(tn)
+    raise ValueError('Unsupported dtype for function extract_field.')
+
+
 def compute_td_errs(
         q_network: QNetwork,
         target_network: QNetwork,
-        o_t: tc.FloatTensor,
-        a_t: tc.LongTensor,
-        r_t: tc.FloatTensor,
-        d_t: tc.FloatTensor,
-        o_tp1: tc.FloatTensor,
+        experience_tuples: List[ExperienceTuple],
         gamma: float,
         double_dqn: bool
 ):
+    o_t = extract_field(experience_tuples, 's_t', 'float')
+    a_t = extract_field(experience_tuples, 'a_t', 'long')
+    r_t = extract_field(experience_tuples, 'r_t', 'float')
+    d_t = extract_field(experience_tuples, 'd_t', 'float')
+    o_tp1 = extract_field(experience_tuples, 's_tp1', 'float')
     if double_dqn:
         qs_tp1_tgt = target_network(o_tp1)
         qs_tp1 = q_network(o_tp1)
@@ -48,21 +64,6 @@ def compute_td_errs(
 
         td_errs = y_t.detach() - q_t
     return td_errs
-
-
-def extract_field(
-        experience_tuples: List[ExperienceTuple],
-        field_name: str,
-        dtype: str
-):
-    assert dtype in ['float', 'long']
-    lt = list(map(lambda et: getattr(et, field_name), experience_tuples))
-    tn = tc.stack(lt, dim=0)
-    if dtype == 'float':
-        return tc.FloatTensor(tn)
-    if dtype == 'long':
-        return tc.LongTensor(tn)
-    raise ValueError('Unsupported dtype for function extract_field.')
 
 
 def generate_experience(
@@ -90,23 +91,9 @@ def generate_experience(
             o_tp1 = env.reset()
         d_t = float(d_t)
 
-        ### compute td error.
-        td_err = compute_td_errs(
-            q_network=q_network,
-            target_network=target_network,
-            o_t=tc.FloatTensor(o_t).unsqueeze(0),
-            a_t=tc.LongTensor(a_t).unsqueeze(0),
-            r_t=tc.FloatTensor(r_t).unsqueeze(0),
-            d_t=tc.FloatTensor(d_t).unsqueeze(0),
-            o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
-            gamma=gamma,
-            double_dqn=double_dqn)
-        td_err = td_err.squeeze(0).detach().numpy()
-
         ### create experience tuple
         experience_tuple = ExperienceTuple(
-            s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1,
-            td_err=td_err)
+            s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
 
         ### increment t and yield experience tuple
         t += 1
@@ -129,11 +116,7 @@ def learn(
         mb_td_errs = compute_td_errs(
             q_network=q_network,
             target_network=target_network,
-            o_t=extract_field(samples['data'], 's_t', 'float'),
-            a_t=extract_field(samples['data'], 'a_t', 'long'),
-            r_t=extract_field(samples['data'], 'r_t', 'float'),
-            d_t=extract_field(samples['data'], 'd_t', 'float'),
-            o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
+            experience_tuples=samples['data'],
             gamma=gamma,
             double_dqn=double_dqn)
 
@@ -170,16 +153,7 @@ def training_loop(
         gamma: float,
         double_dqn: bool
 ):
-    experience_generator = generate_experience(
-        t0=t0,
-        env=env,
-        q_network=q_network,
-        target_network=target_network,
-        max_env_steps_per_process=max_env_steps_per_process,
-        epsilon_anneal_fn=epsilon_anneal_fn,
-        gamma=gamma,
-        double_dqn=double_dqn)
-
+    o_t = env.reset()
     for t in range(t0, max_env_steps_per_process):
         ### maybe target network update
         if t > 0 and t % target_update_interval == 0:
@@ -187,12 +161,25 @@ def training_loop(
                 q_network=q_network,
                 target_network=target_network)
 
-        ### generate experience
-        alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
-        beta_t = beta_annealing_fn(t, max_env_steps_per_process)
-        experience_tuple_t = next(experience_generator)
+        ### generate experience tuple
+        epsilon_t = epsilon_anneal_fn(t, max_env_steps_per_process)
+        a_t = q_network.sample(
+            x=tc.FloatTensor(o_t).unsqueeze(0),
+            epsilon=epsilon_t)
+        a_t = a_t.squeeze(0).detach().numpy()
+
+        o_tp1, r_t, d_t, _ = env.step(action=a_t)
+        if d_t:
+            o_tp1 = env.reset()
+        d_t = float(d_t)
+
+        experience_tuple_t = ExperienceTuple(
+            s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
 
         ### update replay memory
+        alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
+        beta_t = beta_annealing_fn(t, max_env_steps_per_process)
+
         replay_memory.update_alpha(alpha_t)
         replay_memory.update_beta(beta_t)
         replay_memory.insert(experience_tuple_t)
@@ -200,16 +187,25 @@ def training_loop(
         ### maybe learn
         if t > 0 and t % num_env_steps_per_policy_update == 0:
             # TODO(lucaslingle):
-            #    add condition to check that replay memory
-            #    has at least min entries before learning,
-            #    else skip learning.
-            learn(
-                q_network=q_network,
-                replay_memory=replay_memory,
-                optimizer=optimizer,
-                scheduler=scheduler,
-                target_network=target_network,
-                batches_per_policy_update=batches_per_policy_update,
-                batch_size=batch_size,
-                gamma=gamma,
-                double_dqn=double_dqn)
+            #      check replay memory has at least min entries before learning,
+            for _ in range(batches_per_policy_update):
+                samples = replay_memory.sample(batch_size=batch_size)
+                mb_td_errs = compute_td_errs(
+                    q_network=q_network,
+                    target_network=target_network,
+                    experience_tuples=samples['data'],
+                    gamma=gamma,
+                    double_dqn=double_dqn)
+
+                replay_memory.update_td_errs(
+                    indices=samples['indices'],
+                    td_errs=list(mb_td_errs.detach().numpy()))
+
+                mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
+                mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
+                optimizer.zero_grad()
+                mb_loss.backward()
+                # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
+                optimizer.step()
+                if scheduler:
+                    scheduler.step()
