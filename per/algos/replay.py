@@ -81,7 +81,7 @@ class PrioritizedReplayMemory:
     def sample(self, batch_size, debug=False):
         # samples a batch of experience tuples of size batch_size.
         assert self._total_steps >= self._capacity or debug
-        p_total = self._sumtree[0].priority
+        p_total = self._sumtree[0].summed_priority
 
         # get uniform random numbers in intervals
         #     [0,p_tot/k), [p_tot/k,2*p_tot/k), [2*p_tot/k,3*p_tot/k), etc.
@@ -93,25 +93,24 @@ class PrioritizedReplayMemory:
 
         # marginal dist of a randomly selected search query has dist U[0, p_total).
         # now we search for memory_id in which each random query fell.
-        idxs = []
+        indices = []
         tree_height = int(np.ceil(np.log(self._capacity) / np.log(2.0))) + 1
         for search in searches:
             sp_offset = 0.0
             idx = 0
             for _ in range(0, tree_height-1):
                 idx_l = 2 * (idx + 1) - 1
-                sp_l = self._sumtree[idx_l].priority
+                sp_l = self._sumtree[idx_l].summed_priority
                 if search >= sp_offset + sp_l:
                     idx_r = 2 * (idx + 1)
                     idx = idx_r
                     sp_offset += sp_l
                 else:
                     idx = idx_l
-            idxs.append(idx)
+            indices.append(idx)
 
-        indices = idxs
-        data = [self._sumtree[i].experience_tuple for i in idxs]
-        weights = [self._sumtree[i].priority ** (-self._beta) for i in idxs]
+        data = [self._sumtree[i].experience_tuple for i in indices]
+        weights = [self._sumtree[i].summed_priority ** (-self._beta) for i in indices]
         max_w = max(weights)
         weights = [w / max_w for w in weights]
         return {
