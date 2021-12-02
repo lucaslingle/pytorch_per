@@ -8,7 +8,7 @@ from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 
 
 def compute_td_errs(
-        q_network, target_network, o_t, a_t, r_t, o_tp1, gamma,
+        q_network, target_network, o_t, a_t, r_t, d_t, o_tp1, gamma,
         double_dqn
 ):
     if double_dqn:
@@ -17,7 +17,7 @@ def compute_td_errs(
         argmax_a_tp1 = tc.argmax(qs_tp1, dim=-1)
         q_tp1_tgt = tc.gather(
             input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1)
-        y_t = r_t + gamma * q_tp1_tgt
+        y_t = r_t + (1. - d_t) * gamma * q_tp1_tgt
 
         qs_t = q_network(o_t)
         q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
@@ -26,7 +26,7 @@ def compute_td_errs(
     else:
         qs_tp1_tgt = target_network(o_tp1)
         q_tp1_tgt = tc.max(qs_tp1_tgt, dim=-1)
-        y_t = r_t + gamma * q_tp1_tgt
+        y_t = r_t + (1. - d_t) * gamma * q_tp1_tgt
 
         qs_t = q_network(o_t)
         q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
@@ -77,9 +77,9 @@ def training_loop(
             a_t, q_t = q_network.sample(
                 x=tc.FloatTensor(o_t).unsqueeze(0),
                 epsilon=eps_t)
-            o_tp1, r_t, done_t, _ = env.step(
+            o_tp1, r_t, d_t, _ = env.step(
                 action=a_t.squeeze(0).detach().numpy())
-            if done_t:
+            if d_t:
                 o_tp1 = env.reset()
 
             ### compute td error.
@@ -89,6 +89,7 @@ def training_loop(
                 o_t=tc.FloatTensor(o_t).unsqueeze(0),
                 a_t=tc.FloatTensor(a_t).unsqueeze(0),
                 r_t=tc.FloatTensor(r_t).unsqueeze(0),
+                d_t=tc.FloatTensor(float(d_t)).unsqueeze(0),
                 o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
                 gamma=gamma,
                 double_dqn=double_dqn)
@@ -96,7 +97,8 @@ def training_loop(
 
             ### add experience tuple to replay memory.
             experience_tuple = ExperienceTuple(
-                s_t=o_t, a_t=a_t, r_t=r_t, s_tp1=o_tp1, td_err=td_err)
+                s_t=o_t, a_t=a_t, r_t=r_t, d_t=float(d_t), s_tp1=o_tp1,
+                td_err=td_err)
 
             replay_memory.insert(experience_tuple)
 
@@ -108,6 +110,7 @@ def training_loop(
                 o_t=extract_field(samples['data'], 's_t', 'float'),
                 a_t=extract_field(samples['data'], 'a_t', 'long'),
                 r_t=extract_field(samples['data'], 'r_t', 'float'),
+                d_t=extract_field(samples['data'], 'd_t', 'float'),
                 o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
                 gamma=gamma,
                 double_dqn=double_dqn)

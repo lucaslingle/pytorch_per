@@ -2,10 +2,11 @@ import numpy as np
 
 
 class ExperienceTuple:
-    def __init__(self, s_t, a_t, r_t, s_tp1, td_err):
+    def __init__(self, s_t, a_t, r_t, d_t, s_tp1, td_err):
         self.s_t = s_t
         self.a_t = a_t
         self.r_t = r_t
+        self.d_t = d_t
         self.s_tp1 = s_tp1
         self.td_err = td_err
 
