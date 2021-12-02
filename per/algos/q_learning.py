@@ -8,31 +8,31 @@ from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 
 
 def compute_td_errs(
-        q_network, target_network, mb_o_t, mb_a_t, mb_r_t, gamma, mb_o_tp1,
+        q_network, target_network, o_t, a_t, r_t, gamma, o_tp1,
         double_dqn
 ):
     if double_dqn:
-        mb_qs_t = q_network(mb_o_t)
-        mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
+        qs_tp1_tgt = target_network(o_tp1)
+        qs_tp1 = q_network(o_tp1)
+        argmax_a_tp1 = tc.argmax(qs_tp1, dim=-1)
+        q_tp1_tgt = tc.gather(
+            input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1)
+        y_t = r_t + gamma * q_tp1_tgt
 
-        mb_qs_tp1_tgt = target_network(mb_o_tp1)
-        mb_qs_tp1 = q_network(mb_o_tp1)
-        mb_argmax_a_tp1 = tc.argmax(mb_qs_tp1, dim=-1)
-        mb_q_tp1_tgt = tc.gather(
-            input=mb_qs_tp1_tgt, dim=-1, index=mb_argmax_a_tp1)
+        qs_t = q_network(o_t)
+        q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
 
-        mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
-        mb_td_err = mb_y_t.detach() - mb_q_t
+        td_errs = y_t.detach() - q_t
     else:
-        mb_qs_t = q_network(mb_o_t)
-        mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
+        qs_tp1_tgt = target_network(o_tp1)
+        q_tp1_tgt = tc.max(qs_tp1_tgt, dim=-1)
+        y_t = r_t + gamma * q_tp1_tgt
 
-        mb_qs_tp1_tgt = target_network(mb_o_tp1)
-        mb_q_tp1_tgt = tc.max(mb_qs_tp1_tgt, dim=-1)
+        qs_t = q_network(o_t)
+        q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
 
-        mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
-        mb_td_err = mb_y_t.detach() - mb_q_t
-    return mb_td_err
+        td_errs = y_t.detach() - q_t
+    return td_errs
 
 
 def extract_field(experience_tuples, field_name, dtype):
@@ -43,7 +43,7 @@ def extract_field(experience_tuples, field_name, dtype):
         return tc.FloatTensor(tn)
     if dtype == 'long':
         return tc.LongTensor(tn)
-    raise ValueError(['Unsupported dtype for function extract_field.'])
+    raise ValueError('Unsupported dtype for function extract_field.')
 
 
 def training_loop(
@@ -86,11 +86,11 @@ def training_loop(
             td_err = compute_td_errs(
                 q_network=q_network,
                 target_network=target_network,
-                mb_o_t=tc.FloatTensor(o_t).unsqueeze(0),
-                mb_a_t=tc.FloatTensor(a_t).unsqueeze(0),
-                mb_r_t=tc.FloatTensor(r_t).unsqueeze(0),
+                o_t=tc.FloatTensor(o_t).unsqueeze(0),
+                a_t=tc.FloatTensor(a_t).unsqueeze(0),
+                r_t=tc.FloatTensor(r_t).unsqueeze(0),
                 gamma=gamma,
-                mb_o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
+                o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
                 double_dqn=double_dqn)
             td_err = td_err.squeeze(0).detach().numpy()
 
@@ -105,11 +105,11 @@ def training_loop(
             mb_td_err = compute_td_errs(
                 q_network=q_network,
                 target_network=target_network,
-                mb_o_t=extract_field(samples['data'], 's_t', 'float'),
-                mb_a_t=extract_field(samples['data'], 'a_t', 'long'),
-                mb_r_t=extract_field(samples['data'], 'r_t', 'float'),
+                o_t=extract_field(samples['data'], 's_t', 'float'),
+                a_t=extract_field(samples['data'], 'a_t', 'long'),
+                r_t=extract_field(samples['data'], 'r_t', 'float'),
                 gamma=gamma,
-                mb_o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
+                o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
                 double_dqn=double_dqn)
 
             replay_memory.update_td_errs(
