@@ -81,6 +81,7 @@ def training_loop(
                 action=a_t.squeeze(0).detach().numpy())
             if d_t:
                 o_tp1 = env.reset()
+            d_t = float(d_t)
 
             ### compute td error.
             td_err = compute_td_errs(
@@ -89,7 +90,7 @@ def training_loop(
                 o_t=tc.FloatTensor(o_t).unsqueeze(0),
                 a_t=tc.FloatTensor(a_t).unsqueeze(0),
                 r_t=tc.FloatTensor(r_t).unsqueeze(0),
-                d_t=tc.FloatTensor(float(d_t)).unsqueeze(0),
+                d_t=tc.FloatTensor(d_t).unsqueeze(0),
                 o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
                 gamma=gamma,
                 double_dqn=double_dqn)
@@ -97,7 +98,7 @@ def training_loop(
 
             ### add experience tuple to replay memory.
             experience_tuple = ExperienceTuple(
-                s_t=o_t, a_t=a_t, r_t=r_t, d_t=float(d_t), s_tp1=o_tp1,
+                s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1,
                 td_err=td_err)
 
             replay_memory.insert(experience_tuple)
