@@ -29,7 +29,6 @@ class PrioritizedReplayMemory:
         self._tree_size = 2 * self._capacity - 1
         self._sumtree = [None for _ in range(self._tree_size)]
         self._expiration_idx = self._tree_size - self._capacity
-
         self._initialize_max_priority()
 
     def _get_capacity(self, capacity):
