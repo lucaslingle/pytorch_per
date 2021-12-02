@@ -24,7 +24,7 @@ class PrioritizedExperienceTuple:
         A node in the sumtree datastructure, which is basically a binary maxheap
         with sum tracking of the left and right child nodes added on.
 
-        :param experience_tuple: experience tuple in leaf nodes, or None.
+        :param experience_tuple: experience tuple in leaf nodes, else None.
         :param summed_priority: priority for replay in leaf nodes, else sum thereof.
         :param max_priority: priority in leaf nodes, else max thereof.
         """
