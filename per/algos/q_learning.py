@@ -79,9 +79,10 @@ def generate_experience(
     o_t = env.reset()
     while t < max_env_steps_per_process:
         ### act.
+        epsilon_t = epsilon_anneal_fn(t, max_env_steps_per_process)
         a_t = q_network.sample(
             x=tc.FloatTensor(o_t).unsqueeze(0),
-            epsilon=epsilon_anneal_fn(t, max_env_steps_per_process))
+            epsilon=epsilon_t)
         a_t = a_t.squeeze(0).detach().numpy()
 
         o_tp1, r_t, d_t, _ = env.step(action=a_t)
