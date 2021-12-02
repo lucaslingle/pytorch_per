@@ -30,16 +30,17 @@ class PrioritizedReplayMemory:
         self._sumtree = [None for _ in range(self._tree_size)]
         self._expiration_idx = self._tree_size - self._capacity
 
-        # initialize the max priority to 1.0 as per Schaul et al., 2015
-        self._sumtree[0] = PrioritizedExperienceTuple(
-            experience_tuple=None,
-            summed_priority=0.0,
-            max_priority=1.0)
+        self._initialize_max_priority()
 
     def _get_capacity(self, capacity):
         # computes the number of leaf nodes to be used as replay.
         # we make the capacity a power of two to simplify the implementation.
         return 2 ** int(np.ceil(np.log(capacity) / np.log(2.0)))
+
+    def _initialize_max_priority(self):
+        # initialize the max priority to 1.0 as per Schaul et al., 2015
+        self._sumtree[0] = PrioritizedExperienceTuple(
+            experience_tuple=None, summed_priority=0., max_priority=1.)
 
     def _get_priority(self, experience_tuple):
         # computes priority using proportional prioritization.
@@ -51,10 +52,10 @@ class PrioritizedReplayMemory:
             idx = ((idx + 1) // 2) - 1      # go up to parent node
             idx_l = 2 * (idx + 1) - 1       # get its left child
             idx_r = 2 * (idx + 1)           # get its right child
-            sp_l = self._sumtree[idx_l].summed_priority if self._sumtree[idx_l] else 0.0
-            sp_r = self._sumtree[idx_r].summed_priority if self._sumtree[idx_r] else 0.0
-            mp_l = self._sumtree[idx_l].max_priority if self._sumtree[idx_l] else 0.0
-            mp_r = self._sumtree[idx_r].max_priority if self._sumtree[idx_r] else 0.0
+            sp_l = self._sumtree[idx_l].summed_priority if self._sumtree[idx_l] else 0.
+            sp_r = self._sumtree[idx_r].summed_priority if self._sumtree[idx_r] else 0.
+            mp_l = self._sumtree[idx_l].max_priority if self._sumtree[idx_l] else 0.
+            mp_r = self._sumtree[idx_r].max_priority if self._sumtree[idx_r] else 0.
             self._sumtree[idx] = PrioritizedExperienceTuple(
                 experience_tuple=None,
                 summed_priority=(sp_l + sp_r),
