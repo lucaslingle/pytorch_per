@@ -155,7 +155,7 @@ def training_loop(
 ):
     o_t = env.reset()
     for t in range(t0, max_env_steps_per_process):
-        ### maybe target network update
+        ### update target network?
         if t > 0 and t % target_update_interval == 0:
             update_target_network(
                 q_network=q_network,
@@ -176,7 +176,7 @@ def training_loop(
         experience_tuple_t = ExperienceTuple(
             s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
 
-        ### update replay memory
+        ### update replay memory.
         alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
         beta_t = beta_annealing_fn(t, max_env_steps_per_process)
 
@@ -184,7 +184,7 @@ def training_loop(
         replay_memory.update_beta(beta_t)
         replay_memory.insert(experience_tuple_t)
 
-        ### maybe learn
+        ### learn?
         if t > 0 and t % num_env_steps_per_policy_update == 0:
             # TODO(lucaslingle):
             #      check replay memory has at least min entries before learning,
