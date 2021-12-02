@@ -1,4 +1,4 @@
-from typing import Optional, Callable
+from typing import List, Optional, Callable
 
 import torch as tc
 import gym
@@ -8,8 +8,15 @@ from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 
 
 def compute_td_errs(
-        q_network, target_network, o_t, a_t, r_t, d_t, o_tp1, gamma,
-        double_dqn
+        q_network: QNetwork,
+        target_network: QNetwork,
+        o_t: tc.FloatTensor,
+        a_t: tc.LongTensor,
+        r_t: tc.FloatTensor,
+        d_t: tc.FloatTensor,
+        o_tp1: tc.FloatTensor,
+        gamma: float,
+        double_dqn: bool
 ):
     if double_dqn:
         qs_tp1_tgt = target_network(o_tp1)
@@ -34,7 +41,11 @@ def compute_td_errs(
     return td_errs
 
 
-def extract_field(experience_tuples, field_name, dtype):
+def extract_field(
+        experience_tuples: List[ExperienceTuple],
+        field_name: str,
+        dtype: str
+):
     assert dtype in ['float', 'long']
     lt = list(map(lambda et: getattr(et, field_name), experience_tuples))
     tn = tc.stack(lt, dim=0)
