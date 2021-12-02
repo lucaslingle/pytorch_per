@@ -8,7 +8,7 @@ from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 
 
 def compute_td_errs(
-        q_network, target_network, o_t, a_t, r_t, gamma, o_tp1,
+        q_network, target_network, o_t, a_t, r_t, o_tp1, gamma,
         double_dqn
 ):
     if double_dqn:
@@ -89,8 +89,8 @@ def training_loop(
                 o_t=tc.FloatTensor(o_t).unsqueeze(0),
                 a_t=tc.FloatTensor(a_t).unsqueeze(0),
                 r_t=tc.FloatTensor(r_t).unsqueeze(0),
-                gamma=gamma,
                 o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
+                gamma=gamma,
                 double_dqn=double_dqn)
             td_err = td_err.squeeze(0).detach().numpy()
 
@@ -108,8 +108,8 @@ def training_loop(
                 o_t=extract_field(samples['data'], 's_t', 'float'),
                 a_t=extract_field(samples['data'], 'a_t', 'long'),
                 r_t=extract_field(samples['data'], 'r_t', 'float'),
-                gamma=gamma,
                 o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
+                gamma=gamma,
                 double_dqn=double_dqn)
 
             replay_memory.update_td_errs(
