@@ -34,7 +34,7 @@ def training_loop(
             beta_t = beta_annealing_fn(t, max_env_steps_per_process)
             eps_t = epsilon_anneal_fn(t, max_env_steps_per_process)
 
-            ### act.
+            ### act. # TODO(lucaslingle): verify which network we act with.
             a_t, q_t = q_network.sample(
                 x=tc.FloatTensor(o_t).unsqueeze(0),
                 epsilon=eps_t)
