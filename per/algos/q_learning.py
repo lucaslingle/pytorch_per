@@ -89,7 +89,7 @@ def training_loop(
                 in the q network if loaded directly...
                 
                 see https://pytorch.org/tutorials/beginner/saving_loading_models.html 
-                note reading "if you plan..." 
+                note reading "if you only plan..." 
                 
                 test this out to double check. 
                 """
