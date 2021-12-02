@@ -87,7 +87,7 @@ def training_loop(
 ):
     o_t = env.reset()
     for t in range(t0, max_env_steps_per_process):
-        ### maybe update target network
+        ### maybe update target network.
         if t > 0 and t % target_update_interval == 0:
             update_target_network(
                 q_network=q_network,
