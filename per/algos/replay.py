@@ -119,9 +119,9 @@ class PrioritizedReplayMemory:
         # updates importance weight exponent beta.
         self._beta = new_beta
 
-    def update_td_errs(self, idxs, td_errs):
+    def update_td_errs(self, indices, td_errs):
         # updates td errors and associated priorities.
-        for i, e in zip(idxs, td_errs):
+        for i, e in zip(indices, td_errs):
             pt = self._sumtree[i]
             pt.experience_tuple.td_err = e
             pt.priority = self._get_priority(pt.experience_tuple)

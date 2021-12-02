@@ -116,7 +116,7 @@ def training_loop(
                 double_dqn=double_dqn)
 
             replay_memory.update_td_errs(
-                idxs=samples['indices'],
+                indices=samples['indices'],
                 td_errs=list(mb_td_err.detach().numpy()))
 
             # TODO(lucaslingle):
