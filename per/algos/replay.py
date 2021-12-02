@@ -81,9 +81,8 @@ class PrioritizedReplayMemory:
         unifs *= p_total / float(batch_size)
         searches = shifts + unifs
 
-        # search for memory_id in which each random query fell
-        # this is a form of stratified sampling; note that the marginal dist over samples
-        # with the batch_idx marginalized out matches the p.m.f. defined by the priorities.
+        # marginal dist of a randomly selected search query has dist U[0, p_total).
+        # now we search for memory_id in which each random query fell.
         idxs = []
         tree_height = int(np.ceil(np.log(self._capacity) / np.log(2.0))) + 1
         for search in searches:
