@@ -2,6 +2,7 @@ from typing import Optional, Callable
 
 import torch as tc
 import gym
+import numpy as np
 
 from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
@@ -34,7 +35,7 @@ def training_loop(
             beta_t = beta_annealing_fn(t, max_env_steps_per_process)
             eps_t = epsilon_anneal_fn(t, max_env_steps_per_process)
 
-            ### act. # TODO(lucaslingle): verify which network we act with.
+            ### act.
             a_t, q_t = q_network.sample(
                 x=tc.FloatTensor(o_t).unsqueeze(0),
                 epsilon=eps_t)
@@ -43,7 +44,7 @@ def training_loop(
             if done_t:
                 o_tp1 = env.reset()
 
-            ### compute td error. # TODO(lucaslingle): move this logic elsewhere
+            ### compute td error.
             if double_dqn:
                 qs_tp1_tgt = target_network(tc.FloatTensor(o_tp1).unsqueeze(0))
                 qs_tp1 = q_network(tc.FloatTensor(o_tp1).unsqueeze(0))
@@ -55,7 +56,7 @@ def training_loop(
                 td_err = y_t - q_t
             else:
                 qs_tp1_tgt = target_network(tc.FloatTensor(o_tp1).unsqueeze(0))
-                q_tp1_tgt = tc.max(qs_tp1_tgt)
+                q_tp1_tgt = tc.max(qs_tp1_tgt, dim=-1)
                 q_tp1_tgt = q_tp1_tgt.squeeze(0).detach().numpy()
                 q_t = q_t.squeeze(0).detach().numpy()
                 y_t = r_t + gamma * q_tp1_tgt
@@ -69,4 +70,25 @@ def training_loop(
 
         for _ in range(batches_per_policy_update):
             samples = replay_memory.sample(batch_size=batch_size)
-            # TODO(lucaslingle): add logic to update td errors in replay memory
+            mb_o_t = tc.stack(list(map(lambda et: tc.FloatTensor(et.s_t), samples)), dim=0)
+            mb_a_t = tc.stack(list(map(lambda et: tc.LongTensor(et.a_t), samples)), dim=0)
+            mb_r_t = tc.stack(list(map(lambda et: tc.FloatTensor(et.r_t), samples)), dim=0)
+            mb_o_tp1 = tc.stack(list(map(lambda et: tc.FloatTensor(et.s_tp1), samples)), dim=0)
+            if double_dqn:
+                mb_qs_tp1_tgt = target_network(mb_o_tp1)
+                mb_qs_tp1 = q_network(mb_o_tp1)
+                mb_argmax_a_tp1 = tc.argmax(mb_qs_tp1, dim=-1)
+                mb_q_tp1_tgt = tc.gather(input=mb_qs_tp1_tgt, dim=-1, index=mb_argmax_a_tp1)
+
+                mb_qs_t = q_network(mb_o_t)
+                mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
+                mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
+                mb_td_err = mb_y_t - mb_q_t
+            else:
+                mb_qs_tp1_tgt = target_network(mb_o_tp1)
+                mb_q_tp1_tgt = tc.max(mb_qs_tp1_tgt, dim=-1)
+                mb_qs_t = q_network(mb_o_t)
+                mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
+                mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
+                mb_td_err = mb_y_t - mb_q_t
+
