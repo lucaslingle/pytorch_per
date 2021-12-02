@@ -65,44 +65,23 @@ def extract_field(
     raise ValueError('Unsupported dtype for function extract_field.')
 
 
-def training_loop(
+def generate_experience(
+        t0: int,
         env: gym.Env,
         q_network: QNetwork,
-        replay_memory: PrioritizedReplayMemory,
-        optimizer: tc.optim.Optimizer,
-        scheduler: Optional[tc.optim.lr_scheduler._LRScheduler],
         target_network: QNetwork,
-        target_update_interval: int,
         max_env_steps_per_process: int,
-        num_env_steps_per_policy_update: int,
-        batches_per_policy_update: int,
-        batch_size: int,
-        alpha_annealing_fn: Callable[[int, int], float],
-        beta_annealing_fn: Callable[[int, int], float],
         epsilon_anneal_fn: Callable[[int, int], float],
         gamma: float,
         double_dqn: bool
 ):
+    t = t0
     o_t = env.reset()
-    for t in range(0, max_env_steps_per_process):
-        ### target network update
-        if t > 0 and t % target_update_interval == 0:
-            update_target_network(
-                q_network=q_network,
-                target_network=target_network)
-
-        ### update annealed constants.
-        alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
-        beta_t = beta_annealing_fn(t, max_env_steps_per_process)
-        eps_t = epsilon_anneal_fn(t, max_env_steps_per_process)
-
-        replay_memory.update_alpha(alpha_t)
-        replay_memory.update_beta(beta_t)
-
+    while t < max_env_steps_per_process:
         ### act.
         a_t = q_network.sample(
             x=tc.FloatTensor(o_t).unsqueeze(0),
-            epsilon=eps_t)
+            epsilon=epsilon_anneal_fn(t, max_env_steps_per_process))
         a_t = a_t.squeeze(0).detach().numpy()
 
         o_tp1, r_t, d_t, _ = env.step(action=a_t)
@@ -123,12 +102,98 @@ def training_loop(
             double_dqn=double_dqn)
         td_err = td_err.squeeze(0).detach().numpy()
 
-        ### add experience tuple to replay memory.
+        ### create experience tuple
         experience_tuple = ExperienceTuple(
             s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1,
             td_err=td_err)
 
-        replay_memory.insert(experience_tuple)
+        ### increment t and yield experience tuple
+        t += 1
+        yield experience_tuple
+
+
+def learn(
+        q_network: QNetwork,
+        replay_memory: PrioritizedReplayMemory,
+        optimizer: tc.optim.Optimizer,
+        scheduler: Optional[tc.optim.lr_scheduler._LRScheduler],
+        target_network: QNetwork,
+        batches_per_policy_update: int,
+        batch_size: int,
+        gamma: float,
+        double_dqn: bool
+):
+    for _ in range(batches_per_policy_update):
+        samples = replay_memory.sample(batch_size=batch_size)
+        mb_td_errs = compute_td_errs(
+            q_network=q_network,
+            target_network=target_network,
+            o_t=extract_field(samples['data'], 's_t', 'float'),
+            a_t=extract_field(samples['data'], 'a_t', 'long'),
+            r_t=extract_field(samples['data'], 'r_t', 'float'),
+            d_t=extract_field(samples['data'], 'd_t', 'float'),
+            o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
+            gamma=gamma,
+            double_dqn=double_dqn)
+
+        replay_memory.update_td_errs(
+            indices=samples['indices'],
+            td_errs=list(mb_td_errs.detach().numpy()))
+
+        mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
+        mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
+        optimizer.zero_grad()
+        mb_loss.backward()
+        # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
+        optimizer.step()
+        if scheduler:
+            scheduler.step()
+
+
+def training_loop(
+        t0: int,
+        env: gym.Env,
+        q_network: QNetwork,
+        replay_memory: PrioritizedReplayMemory,
+        optimizer: tc.optim.Optimizer,
+        scheduler: Optional[tc.optim.lr_scheduler._LRScheduler],
+        target_network: QNetwork,
+        target_update_interval: int,
+        max_env_steps_per_process: int,
+        num_env_steps_per_policy_update: int,
+        batches_per_policy_update: int,
+        batch_size: int,
+        alpha_annealing_fn: Callable[[int, int], float],
+        beta_annealing_fn: Callable[[int, int], float],
+        epsilon_anneal_fn: Callable[[int, int], float],
+        gamma: float,
+        double_dqn: bool
+):
+    experience_generator = generate_experience(
+        t0=t0,
+        env=env,
+        q_network=q_network,
+        target_network=target_network,
+        max_env_steps_per_process=max_env_steps_per_process,
+        epsilon_anneal_fn=epsilon_anneal_fn,
+        gamma=gamma,
+        double_dqn=double_dqn)
+
+    for t in range(t0, max_env_steps_per_process):
+        ### target network update
+        if t > 0 and t % target_update_interval == 0:
+            update_target_network(
+                q_network=q_network,
+                target_network=target_network)
+
+        ### generate experience and update replay memory
+        alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
+        beta_t = beta_annealing_fn(t, max_env_steps_per_process)
+        experience_tuple_t = next(experience_generator)
+
+        replay_memory.update_alpha(alpha_t)
+        replay_memory.update_beta(beta_t)
+        replay_memory.insert(experience_tuple_t)
 
         ### maybe learn
         if t > 0 and t % num_env_steps_per_policy_update == 0:
@@ -136,28 +201,14 @@ def training_loop(
             #    add condition to check that replay memory
             #    has at least min entries before learning,
             #    else skip learning.
-            for _ in range(batches_per_policy_update):
-                samples = replay_memory.sample(batch_size=batch_size)
-                mb_td_errs = compute_td_errs(
-                    q_network=q_network,
-                    target_network=target_network,
-                    o_t=extract_field(samples['data'], 's_t', 'float'),
-                    a_t=extract_field(samples['data'], 'a_t', 'long'),
-                    r_t=extract_field(samples['data'], 'r_t', 'float'),
-                    d_t=extract_field(samples['data'], 'd_t', 'float'),
-                    o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
-                    gamma=gamma,
-                    double_dqn=double_dqn)
+            learn(
+                q_network=q_network,
+                replay_memory=replay_memory,
+                optimizer=optimizer,
+                scheduler=scheduler,
+                target_network=target_network,
+                batches_per_policy_update=batches_per_policy_update,
+                batch_size=batch_size,
+                gamma=gamma,
+                double_dqn=double_dqn)            ):
 
-                replay_memory.update_td_errs(
-                    indices=samples['indices'],
-                    td_errs=list(mb_td_errs.detach().numpy()))
-
-                mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
-                mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
-                optimizer.zero_grad()
-                mb_loss.backward()
-                # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
-                optimizer.step()
-                if scheduler:
-                    scheduler.step()
