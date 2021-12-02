@@ -67,6 +67,7 @@ def training_loop(
     t = 0
     o_t = env.reset()
     while t < max_env_steps_per_process:
+        ### collect data...
         for _ in range(num_env_steps_per_policy_update):
             ### update annealed constants.
             alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
@@ -103,6 +104,7 @@ def training_loop(
 
             replay_memory.insert(experience_tuple)
 
+        ### learn...
         for _ in range(batches_per_policy_update):
             samples = replay_memory.sample(batch_size=batch_size)
             mb_td_errs = compute_td_errs(
