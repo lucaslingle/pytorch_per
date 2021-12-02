@@ -117,7 +117,7 @@ def training_loop(
         ### maybe learn.
         if t > 0 and t % num_env_steps_per_policy_update == 0:
             # TODO(lucaslingle):
-            #      check replay memory has at least min entries before learning,
+            #      check replay memory has at least min entries before learning
             for _ in range(batches_per_policy_update):
                 samples = replay_memory.sample(batch_size=batch_size)
                 mb_td_errs = compute_td_errs(
