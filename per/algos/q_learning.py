@@ -161,7 +161,7 @@ def training_loop(
                 q_network=q_network,
                 target_network=target_network)
 
-        ### generate experience tuple
+        ### act.
         epsilon_t = epsilon_anneal_fn(t, max_env_steps_per_process)
         a_t = q_network.sample(
             x=tc.FloatTensor(o_t).unsqueeze(0),
