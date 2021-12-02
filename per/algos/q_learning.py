@@ -8,6 +8,17 @@ from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 
 
+def extract_field(experience_tuples, field_name, dtype):
+    assert dtype in ['float', 'long']
+    lt = list(map(lambda et: getattr(et, field_name), experience_tuples))
+    tn = tc.stack(lt, dim=0)
+    if dtype == 'float':
+        return tc.FloatTensor(tn)
+    if dtype == 'long':
+        return tc.LongTensor(tn)
+    raise ValueError(['Unsupported dtype for function extract_field.'])
+
+
 def training_loop(
         env: gym.Env,
         q_network: QNetwork,
@@ -70,15 +81,16 @@ def training_loop(
 
         for _ in range(batches_per_policy_update):
             samples = replay_memory.sample(batch_size=batch_size)
-            mb_o_t = tc.stack(list(map(lambda et: tc.FloatTensor(et.s_t), samples)), dim=0)
-            mb_a_t = tc.stack(list(map(lambda et: tc.LongTensor(et.a_t), samples)), dim=0)
-            mb_r_t = tc.stack(list(map(lambda et: tc.FloatTensor(et.r_t), samples)), dim=0)
-            mb_o_tp1 = tc.stack(list(map(lambda et: tc.FloatTensor(et.s_tp1), samples)), dim=0)
+            mb_o_t = extract_field(samples['data'], 's_t', 'float')
+            mb_a_t = extract_field(samples['data'], 'a_t', 'long')
+            mb_r_t = extract_field(samples['data'], 'r_t', 'float')
+            mb_o_tp1 = extract_field(samples['data'], 's_tp1', 'float')
             if double_dqn:
                 mb_qs_tp1_tgt = target_network(mb_o_tp1)
                 mb_qs_tp1 = q_network(mb_o_tp1)
                 mb_argmax_a_tp1 = tc.argmax(mb_qs_tp1, dim=-1)
-                mb_q_tp1_tgt = tc.gather(input=mb_qs_tp1_tgt, dim=-1, index=mb_argmax_a_tp1)
+                mb_q_tp1_tgt = tc.gather(
+                    input=mb_qs_tp1_tgt, dim=-1, index=mb_argmax_a_tp1)
 
                 mb_qs_t = q_network(mb_o_t)
                 mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
@@ -91,4 +103,9 @@ def training_loop(
                 mb_q_t = tc.gather(input=mb_qs_t, dim=-1, index=mb_a_t)
                 mb_y_t = mb_r_t + gamma * mb_q_tp1_tgt
                 mb_td_err = mb_y_t - mb_q_t
+
+            updated_td_errs = tc.unbind(mb_td_err, dim=0)
+            replay_memory.update_td_errs(
+                idxs=samples['indices'], td_errs=updated_td_errs)
+
 
