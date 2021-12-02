@@ -121,9 +121,10 @@ def training_loop(
                 indices=samples['indices'],
                 td_errs=list(mb_td_errs.detach().numpy()))
 
-            mb_loss = tc.nn.SmoothL1Loss()(mb_td_errs)
+            mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
+            mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
             optimizer.zero_grad()
-            mb_loss.backwards()
+            mb_loss.backward()
             # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
             optimizer.step()
             if scheduler:
