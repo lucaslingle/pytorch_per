@@ -181,17 +181,18 @@ def training_loop(
         double_dqn=double_dqn)
 
     for t in range(t0, max_env_steps_per_process):
-        ### target network update
+        ### maybe target network update
         if t > 0 and t % target_update_interval == 0:
             update_target_network(
                 q_network=q_network,
                 target_network=target_network)
 
-        ### generate experience and update replay memory
+        ### generate experience
         alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
         beta_t = beta_annealing_fn(t, max_env_steps_per_process)
         experience_tuple_t = next(experience_generator)
 
+        ### update replay memory
         replay_memory.update_alpha(alpha_t)
         replay_memory.update_beta(beta_t)
         replay_memory.insert(experience_tuple_t)
@@ -211,5 +212,4 @@ def training_loop(
                 batches_per_policy_update=batches_per_policy_update,
                 batch_size=batch_size,
                 gamma=gamma,
-                double_dqn=double_dqn)            ):
-
+                double_dqn=double_dqn)
