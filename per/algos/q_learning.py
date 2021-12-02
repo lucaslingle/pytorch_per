@@ -79,6 +79,22 @@ def training_loop(
     while t < max_env_steps_per_process:
         # collect data...
         for _ in range(num_env_steps_per_policy_update):
+            if t > 0 and t % target_update_interval == 0:
+                """
+                we may want to be be extra careful here 
+                and load the checkpointed q network state dict into the target network
+                not just the state dict from the q network directly. 
+                
+                some ambiguity about whether it will track the changes 
+                in the q network if loaded directly...
+                
+                see https://pytorch.org/tutorials/beginner/saving_loading_models.html 
+                note reading "if you plan..." 
+                
+                test this out to double check. 
+                """
+                pass
+
             ### update annealed constants.
             alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
             beta_t = beta_annealing_fn(t, max_env_steps_per_process)
@@ -113,6 +129,7 @@ def training_loop(
                 td_err=td_err)
 
             replay_memory.insert(experience_tuple)
+            t += 1
 
         # learn...
         for _ in range(batches_per_policy_update):
