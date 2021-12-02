@@ -83,77 +83,81 @@ def training_loop(
         gamma: float,
         double_dqn: bool
 ):
-    t = 0
     o_t = env.reset()
-    while t < max_env_steps_per_process:
-        # collect data...
-        for _ in range(num_env_steps_per_policy_update):
-            ### maybe update target network.
-            if t > 0 and t % target_update_interval == 0:
-                update_target_network(
+    for t in range(0, max_env_steps_per_process):
+        ### target network update
+        if t > 0 and t % target_update_interval == 0:
+            update_target_network(
+                q_network=q_network,
+                target_network=target_network)
+
+        ### update annealed constants.
+        alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
+        beta_t = beta_annealing_fn(t, max_env_steps_per_process)
+        eps_t = epsilon_anneal_fn(t, max_env_steps_per_process)
+
+        replay_memory.update_alpha(alpha_t)
+        replay_memory.update_beta(beta_t)
+
+        ### act.
+        a_t = q_network.sample(
+            x=tc.FloatTensor(o_t).unsqueeze(0),
+            epsilon=eps_t)
+        a_t = a_t.squeeze(0).detach().numpy()
+
+        o_tp1, r_t, d_t, _ = env.step(action=a_t)
+        if d_t:
+            o_tp1 = env.reset()
+        d_t = float(d_t)
+
+        ### compute td error.
+        td_err = compute_td_errs(
+            q_network=q_network,
+            target_network=target_network,
+            o_t=tc.FloatTensor(o_t).unsqueeze(0),
+            a_t=tc.LongTensor(a_t).unsqueeze(0),
+            r_t=tc.FloatTensor(r_t).unsqueeze(0),
+            d_t=tc.FloatTensor(d_t).unsqueeze(0),
+            o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
+            gamma=gamma,
+            double_dqn=double_dqn)
+        td_err = td_err.squeeze(0).detach().numpy()
+
+        ### add experience tuple to replay memory.
+        experience_tuple = ExperienceTuple(
+            s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1,
+            td_err=td_err)
+
+        replay_memory.insert(experience_tuple)
+
+        ### maybe learn
+        if t > 0 and t % num_env_steps_per_policy_update == 0:
+            # TODO(lucaslingle):
+            #    add condition to check that replay memory
+            #    has at least min entries before learning,
+            #    else skip learning.
+            for _ in range(batches_per_policy_update):
+                samples = replay_memory.sample(batch_size=batch_size)
+                mb_td_errs = compute_td_errs(
                     q_network=q_network,
-                    target_network=target_network)
+                    target_network=target_network,
+                    o_t=extract_field(samples['data'], 's_t', 'float'),
+                    a_t=extract_field(samples['data'], 'a_t', 'long'),
+                    r_t=extract_field(samples['data'], 'r_t', 'float'),
+                    d_t=extract_field(samples['data'], 'd_t', 'float'),
+                    o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
+                    gamma=gamma,
+                    double_dqn=double_dqn)
 
-            ### update annealed constants.
-            alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
-            beta_t = beta_annealing_fn(t, max_env_steps_per_process)
-            eps_t = epsilon_anneal_fn(t, max_env_steps_per_process)
+                replay_memory.update_td_errs(
+                    indices=samples['indices'],
+                    td_errs=list(mb_td_errs.detach().numpy()))
 
-            ### act.
-            a_t = q_network.sample(
-                x=tc.FloatTensor(o_t).unsqueeze(0),
-                epsilon=eps_t)
-            a_t = a_t.squeeze(0).detach().numpy()
-
-            o_tp1, r_t, d_t, _ = env.step(action=a_t)
-            if d_t:
-                o_tp1 = env.reset()
-            d_t = float(d_t)
-
-            ### compute td error.
-            td_err = compute_td_errs(
-                q_network=q_network,
-                target_network=target_network,
-                o_t=tc.FloatTensor(o_t).unsqueeze(0),
-                a_t=tc.LongTensor(a_t).unsqueeze(0),
-                r_t=tc.FloatTensor(r_t).unsqueeze(0),
-                d_t=tc.FloatTensor(d_t).unsqueeze(0),
-                o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
-                gamma=gamma,
-                double_dqn=double_dqn)
-            td_err = td_err.squeeze(0).detach().numpy()
-
-            ### add experience tuple to replay memory.
-            experience_tuple = ExperienceTuple(
-                s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1,
-                td_err=td_err)
-
-            replay_memory.insert(experience_tuple)
-            t += 1
-
-        # learn...
-        for _ in range(batches_per_policy_update):
-            samples = replay_memory.sample(batch_size=batch_size)
-            mb_td_errs = compute_td_errs(
-                q_network=q_network,
-                target_network=target_network,
-                o_t=extract_field(samples['data'], 's_t', 'float'),
-                a_t=extract_field(samples['data'], 'a_t', 'long'),
-                r_t=extract_field(samples['data'], 'r_t', 'float'),
-                d_t=extract_field(samples['data'], 'd_t', 'float'),
-                o_tp1=extract_field(samples['data'], 's_tp1', 'float'),
-                gamma=gamma,
-                double_dqn=double_dqn)
-
-            replay_memory.update_td_errs(
-                indices=samples['indices'],
-                td_errs=list(mb_td_errs.detach().numpy()))
-
-            mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
-            mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
-            optimizer.zero_grad()
-            mb_loss.backward()
-            # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
-            optimizer.step()
-            if scheduler:
-                scheduler.step()
+                mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
+                mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
+                optimizer.zero_grad()
+                mb_loss.backward()
+                # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
+                optimizer.step()
+                if scheduler:
+                    scheduler.step()
