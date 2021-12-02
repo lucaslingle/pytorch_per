@@ -89,7 +89,7 @@ def training_loop(
                 q_network=q_network,
                 target_network=target_network,
                 o_t=tc.FloatTensor(o_t).unsqueeze(0),
-                a_t=tc.FloatTensor(a_t).unsqueeze(0),
+                a_t=tc.LongTensor(a_t).unsqueeze(0),
                 r_t=tc.FloatTensor(r_t).unsqueeze(0),
                 d_t=tc.FloatTensor(d_t).unsqueeze(0),
                 o_tp1=tc.FloatTensor(o_tp1).unsqueeze(0),
