@@ -28,4 +28,4 @@ class QNetwork(tc.nn.Module):
             low=0, high=self._num_actions, size=batch_size)
 
         action = (1-do_rand) * greedy_action + do_rand * random_action
-        return action, tc.gather(input=qpred, dim=-1, index=action)
+        return action

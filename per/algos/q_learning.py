@@ -74,7 +74,7 @@ def training_loop(
             eps_t = epsilon_anneal_fn(t, max_env_steps_per_process)
 
             ### act.
-            a_t, q_t = q_network.sample(
+            a_t = q_network.sample(
                 x=tc.FloatTensor(o_t).unsqueeze(0),
                 epsilon=eps_t)
             o_tp1, r_t, d_t, _ = env.step(
