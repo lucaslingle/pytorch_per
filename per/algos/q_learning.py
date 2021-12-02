@@ -104,7 +104,7 @@ def training_loop(
 
         for _ in range(batches_per_policy_update):
             samples = replay_memory.sample(batch_size=batch_size)
-            mb_td_err = compute_td_errs(
+            mb_td_errs = compute_td_errs(
                 q_network=q_network,
                 target_network=target_network,
                 o_t=extract_field(samples['data'], 's_t', 'float'),
@@ -117,8 +117,12 @@ def training_loop(
 
             replay_memory.update_td_errs(
                 indices=samples['indices'],
-                td_errs=list(mb_td_err.detach().numpy()))
+                td_errs=list(mb_td_errs.detach().numpy()))
 
-            # TODO(lucaslingle):
-            #   add smooth l1 loss for mb_td_err terms.
-            #   note that they're differentiable w.r.t. params of q_network.
+            mb_loss = tc.nn.SmoothL1Loss()(mb_td_errs)
+            optimizer.zero_grad()
+            mb_loss.backwards()
+            # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
+            optimizer.step()
+            if scheduler:
+                scheduler.step()
