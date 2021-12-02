@@ -73,8 +73,8 @@ class PrioritizedReplayMemory:
         # and steps the expiration index.
         self._sumtree[self._expiration_idx] = PrioritizedExperienceTuple(
             experience_tuple=experience_tuple,
-            summed_priority=self._sumtree[0].max_priority,
-            max_priority=self._sumtree[0].max_priority)
+            summed_priority=self._sumtree[0].max_priority,  # summed priority is priority for replay
+            max_priority=self._sumtree[0].max_priority)     # max priority is for tracking max priority
         self._update_priorities(self._expiration_idx)
         self._step()
 
