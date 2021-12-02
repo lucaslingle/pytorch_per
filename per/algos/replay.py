@@ -12,9 +12,10 @@ class ExperienceTuple:
 
 
 class PrioritizedExperienceTuple:
-    def __init__(self, priority, experience_tuple):
-        self.priority = priority
+    def __init__(self, experience_tuple, summed_priority, max_priority):
         self.experience_tuple = experience_tuple
+        self.summed_priority = summed_priority
+        self.max_priority = max_priority
 
 
 class PrioritizedReplayMemory:
@@ -28,6 +29,12 @@ class PrioritizedReplayMemory:
         self._tree_size = 2 * self._capacity - 1
         self._sumtree = [None for _ in range(self._tree_size)]
         self._expiration_idx = self._tree_size - self._capacity
+
+        # initialize the max priority to 1.0 as per Schaul et al., 2015
+        self._sumtree[0] = PrioritizedExperienceTuple(
+            experience_tuple=None,
+            summed_priority=0.0,
+            max_priority=1.0)
 
     def _get_capacity(self, capacity):
         # computes the number of leaf nodes to be used as replay.
@@ -44,11 +51,14 @@ class PrioritizedReplayMemory:
             idx = ((idx + 1) // 2) - 1      # go up to parent node
             idx_l = 2 * (idx + 1) - 1       # get its left child
             idx_r = 2 * (idx + 1)           # get its right child
-            sp_l = self._sumtree[idx_l].priority if self._sumtree[idx_l] else 0.0
-            sp_r = self._sumtree[idx_r].priority if self._sumtree[idx_r] else 0.0
+            sp_l = self._sumtree[idx_l].summed_priority if self._sumtree[idx_l] else 0.0
+            sp_r = self._sumtree[idx_r].summed_priority if self._sumtree[idx_r] else 0.0
+            mp_l = self._sumtree[idx_l].max_priority if self._sumtree[idx_l] else 0.0
+            mp_r = self._sumtree[idx_r].max_priority if self._sumtree[idx_r] else 0.0
             self._sumtree[idx] = PrioritizedExperienceTuple(
-                priority=(sp_l + sp_r),
-                experience_tuple=None)
+                experience_tuple=None,
+                summed_priority=(sp_l + sp_r),
+                max_priority=max(mp_l, mp_r))
 
     def _step(self):
         # steps the expiration index to the next leaf.
@@ -59,13 +69,12 @@ class PrioritizedReplayMemory:
         self._total_steps += 1
 
     def insert(self, experience_tuple):
-        # inserts an experience tuple, updates upstream priorities,
+        # inserts an experience tuple with max priority, updates upstream priorities,
         # and steps the expiration index.
-        priority = self._get_priority(experience_tuple)
         self._sumtree[self._expiration_idx] = PrioritizedExperienceTuple(
-            priority=priority,
-            experience_tuple=experience_tuple
-        )
+            experience_tuple=experience_tuple,
+            summed_priority=self._sumtree[0].max_priority,  # summed priority is priority for replay
+            max_priority=self._sumtree[0].max_priority)     # max priority is for tracking max priority
         self._update_priorities(self._expiration_idx)
         self._step()
 
@@ -124,5 +133,8 @@ class PrioritizedReplayMemory:
         for i, e in zip(indices, td_errs):
             pt = self._sumtree[i]
             pt.experience_tuple.td_err = e
-            pt.priority = self._get_priority(pt.experience_tuple)
+
+            priority = self._get_priority(pt.experience_tuple)
+            pt.summed_priority = priority
+            pt.max_priority = priority
             self._update_priorities(i)
