@@ -141,6 +141,7 @@ def create_annealing_fn(
 
 
 def main():
+    ### parse args from sys.argv; get mpi comm object.
     args = create_argparser().parse_args()
     comm = get_comm()
 
@@ -246,3 +247,7 @@ def main():
         comm=comm,
         checkpoint_fn=checkpoint_fn,
         checkpoint_interval=args.checkpoint_interval)
+
+
+if __name__ == '__main__':
+    main()
