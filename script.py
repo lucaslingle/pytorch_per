@@ -26,7 +26,7 @@ def create_argparser():
 
     ### training hparams
     parser.add_argument("--optimizer_name", choices=['rmsprop', 'adam', 'sgd'], default='rmsprop')
-    parser.add_argument("--learning_rate", type=float, default=0.00008)
+    parser.add_argument("--learning_rate", type=float, default=8.25e-5)
     parser.add_argument("--huber_loss", choices=[0,1], default=1)
     parser.add_argument("--target_update_interval", type=int, default=1e4)
     parser.add_argument("--max_env_steps_per_process", type=int, default=50e6)
