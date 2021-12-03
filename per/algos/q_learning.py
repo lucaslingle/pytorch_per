@@ -46,6 +46,8 @@ def compute_td_errs(
         gamma: float,
         double_dqn: bool
 ):
+    # TODO(lucaslingle):
+    #   look into issue with gather not returning expected results.
     o_t = extract_field(experience_tuples, 's_t', 'float')
     a_t = extract_field(experience_tuples, 'a_t', 'long')
     r_t = extract_field(experience_tuples, 'r_t', 'float')
@@ -72,6 +74,26 @@ def compute_td_errs(
         "q_t": q_t,
         "delta_t": y_t - q_t
     }
+
+
+def compute_losses(
+        inputs: tc.FloatTensor,
+        targets: tc.FloatTensor,
+        weights: tc.FloatTensor,
+        huber_loss: bool
+):
+    if huber_loss:
+        mb_loss_terms = tc.nn.SmoothL1Loss()(
+            inputs=inputs,
+            targets=targets,
+            reduction='none')
+    else:
+        mb_loss_terms = tc.nn.MSELoss()(
+            inputs=inputs,
+            targets=targets,
+            reduction='none')
+    mb_loss = tc.sum(weights * mb_loss_terms)
+    return mb_loss
 
 
 def training_loop(
@@ -139,17 +161,11 @@ def training_loop(
                     indices=samples['indices'],
                     td_errs=list(mb_td_errs['delta_t'].detach().numpy()))
 
-                if huber_loss:
-                    mb_loss_terms = tc.nn.SmoothL1Loss()(
-                        inputs=mb_td_errs['q_t'],
-                        targets=mb_td_errs['y_t'],
-                        reduction='none')
-                else:
-                    mb_loss_terms = tc.nn.MSELoss()(
-                        inputs=mb_td_errs['q_t'],
-                        targets=mb_td_errs['y_t'],
-                        reduction='none')
-                mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
+                mb_loss = compute_losses(
+                    inputs=mb_td_errs['q_t'],
+                    targets=mb_td_errs['y_t'],
+                    weights=tc.FloatTensor(samples['weights']),
+                    huber_loss=huber_loss)
                 optimizer.zero_grad()
                 mb_loss.backward()
                 # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
