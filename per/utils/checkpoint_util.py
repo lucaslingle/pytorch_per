@@ -49,7 +49,7 @@ def save_checkpoint(
         steps: num steps for the checkpoint to save.
         checkpoint_dir: checkpoint dir for checkpointing.
         run_name: run name for checkpointing.
-        q_network: q network to be saved to checkpoint.
+        q_network: q-network to be saved to checkpoint.
         target_network: target network to be saved to checkpoint.
         optimizer: optimizer to be saved to checkpoint.
         scheduler: scheduler to be saved to checkpoint.
@@ -96,7 +96,7 @@ def maybe_load_checkpoint(
     Args:
         checkpoint_dir: checkpoint dir for checkpointing.
         run_name: run name for checkpointing.
-        q_network: q network to be updated from checkpoint.
+        q_network: q-network to be updated from checkpoint.
         target_network: target network to be updated from checkpoint.
         optimizer: optimizer to be updated from checkpoint.
         scheduler: scheduler to be updated from checkpoint.

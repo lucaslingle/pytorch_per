@@ -15,11 +15,11 @@ def get_comm():
 @tc.no_grad()
 def sync_state(q_network, target_network, optimizer, scheduler, comm, root):
     """
-    Synchronize state of a q network, target network, optimizer, and maybe scheduler,
+    Synchronize state of a q-network, target network, optimizer, and maybe scheduler,
     using MPI.
 
     Args:
-        q_network: q network.
+        q_network: q-network.
         target_network: target network.
         optimizer: optimizer for the q network.
         scheduler: optional lr scheduler for the model.

@@ -53,6 +53,7 @@ class NatureCNN(tc.nn.Module):
         return self._feature_dim
 
     def forward(self, x):
+        x /= 255.
+        x = x.permute(0, 3, 1, 2)
         features = self._network(x)
         return features
-

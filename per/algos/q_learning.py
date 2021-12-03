@@ -1,6 +1,7 @@
-from typing import List, Optional, Callable
+from typing import Tuple, List, Optional, Callable
 
 import torch as tc
+import numpy as np
 import gym
 from mpi4py import MPI
 
@@ -13,7 +14,7 @@ def mod_check(
         step: int,
         min_step: int,
         mod: int
-):
+) -> bool:
     return step >= min_step and step % mod == 0
 
 
@@ -21,12 +22,18 @@ def mod_check(
 def update_target_network(
         q_network: QNetwork,
         target_network: QNetwork
-):
+) -> None:
     for dest, src in zip(target_network.parameters(), q_network.parameters()):
         dest.copy_(src)
 
 
-def step_env(q_network, epsilon, o_t, env):
+@tc.no_grad()
+def step_env(
+        q_network: QNetwork,
+        epsilon: float,
+        o_t: np.ndarray,
+        env: gym.Env
+) -> ExperienceTuple:
     a_t = q_network.sample(
         x=tc.FloatTensor(o_t).unsqueeze(0),
         epsilon=epsilon)
@@ -46,7 +53,7 @@ def get_tensor(
         experience_tuples: List[ExperienceTuple],
         field_name: str,
         dtype: str
-):
+) -> tc.Tensor:
     lt = list(map(lambda et: getattr(et, field_name), experience_tuples))
     if dtype == 'float':
         return tc.FloatTensor(lt)
@@ -61,7 +68,7 @@ def compute_qvalues_and_targets(
         target_network: QNetwork,
         gamma: float,
         double_dqn: bool
-):
+) -> Tuple[tc.FloatTensor, tc.FloatTensor]:
     o_t = get_tensor(experience_tuples, 's_t', 'float')
     a_t = get_tensor(experience_tuples, 'a_t', 'long')
     r_t = get_tensor(experience_tuples, 'r_t', 'float')
@@ -87,11 +94,11 @@ def compute_qvalues_and_targets(
 
 
 def compute_losses(
-        inputs: tc.FloatTensor,
-        targets: tc.FloatTensor,
-        weights: tc.FloatTensor,
+        inputs: tc.Tensor,
+        targets: tc.Tensor,
+        weights: tc.Tensor,
         huber_loss: bool
-):
+) -> tc.FloatTensor:
     if huber_loss:
         mb_loss_terms = tc.nn.SmoothL1Loss()(
             inputs=inputs,
@@ -103,7 +110,7 @@ def compute_losses(
             targets=targets,
             reduction='none')
     mb_loss = tc.sum(weights * mb_loss_terms)
-    return mb_loss
+    return mb_loss.float()
 
 
 def training_loop(
@@ -129,12 +136,12 @@ def training_loop(
         comm: type(MPI.COMM_WORLD),
         checkpoint_fn: Callable[[int], None],
         checkpoint_interval: int
-):
+) -> None:
     o_t = env.reset()
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
         ### maybe update target network.
         if mod_check(t, num_env_steps_before_learning, target_update_interval):
-            update_target_network(
+             update_target_network(
                 q_network=q_network,
                 target_network=target_network)
 
