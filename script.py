@@ -141,7 +141,6 @@ def create_annealing_fn(
 
 
 def main():
-    ### parse args from sys.argv; get mpi comm object.
     args = create_argparser().parse_args()
     comm = get_comm()
 
