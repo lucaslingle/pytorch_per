@@ -2,9 +2,11 @@ from typing import List, Optional, Callable
 
 import torch as tc
 import gym
+from mpi4py import MPI
 
 from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
+from per.utils.comm_util import sync_grads
 
 
 def mod_check(
@@ -22,6 +24,22 @@ def update_target_network(
 ):
     for dest, src in zip(target_network.parameters(), q_network.parameters()):
         dest.copy_(src)
+
+
+def step_env(q_network, epsilon, o_t, env):
+    a_t = q_network.sample(
+        x=tc.FloatTensor(o_t).unsqueeze(0),
+        epsilon=epsilon)
+    a_t = a_t.squeeze(0).detach().numpy()
+
+    o_tp1, r_t, d_t, _ = env.step(action=a_t)
+    if d_t:
+        o_tp1 = env.reset()
+    d_t = float(d_t)
+
+    experience_tuple_t = ExperienceTuple(
+        s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
+    return experience_tuple_t
 
 
 def get_tensor(
@@ -111,7 +129,8 @@ def training_loop(
         epsilon_annealing_fn: Callable[[int], float],
         gamma: float,
         double_dqn: bool,
-        huber_loss: bool
+        huber_loss: bool,
+        comm: type(MPI.COMM_WORLD)
 ):
     o_t = env.reset()
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
@@ -122,18 +141,11 @@ def training_loop(
                 target_network=target_network)
 
         ### act.
-        a_t = q_network.sample(
-            x=tc.FloatTensor(o_t).unsqueeze(0),
-            epsilon=epsilon_annealing_fn(t))
-        a_t = a_t.squeeze(0).detach().numpy()
-
-        o_tp1, r_t, d_t, _ = env.step(action=a_t)
-        if d_t:
-            o_tp1 = env.reset()
-        d_t = float(d_t)
-
-        experience_tuple_t = ExperienceTuple(
-            s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
+        experience_tuple_t = step_env(
+            q_network=q_network,
+            epsilon=epsilon_annealing_fn(t),
+            o_t=o_t,
+            env=env)
 
         ### update replay memory.
         replay_memory.update_alpha(alpha_annealing_fn(t))
@@ -162,7 +174,7 @@ def training_loop(
                     huber_loss=huber_loss)
                 optimizer.zero_grad()
                 mb_loss.backward()
-                # TODO(lucaslingle): sync grads here if using manual mpi dataparallel
+                sync_grads(model=q_network, comm=comm)
                 optimizer.step()
                 if scheduler:
                     scheduler.step()
