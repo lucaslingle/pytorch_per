@@ -172,19 +172,19 @@ def main():
     alpha_annealing_fn = create_annealing_fn(
         initial_value=args.alpha_init,
         final_value=0.0,
-        do_annealing=args.alpha_annealing,
+        do_annealing=bool(args.alpha_annealing),
         start_step=args.alpha_annealing_start_step,
         end_step=args.max_env_steps_per_process)
     beta_annealing_fn = create_annealing_fn(
         initial_value=args.beta_init,
         final_value=1.0,
-        do_annealing=args.beta_annealing,
+        do_annealing=bool(args.beta_annealing),
         start_step=args.beta_annealing_start_step,
         end_step=args.max_env_steps_per_process)
     epsilon_annealing_fn = create_annealing_fn(
         initial_value=args.epsilon_init,
         final_value=args.epsilon_final,
-        do_annealing=args.epsilon_annealing,
+        do_annealing=bool(args.epsilon_annealing),
         start_step=args.epsilon_annealing_start_step,
         end_step=args.epsilon_annealing_end_step)
 
