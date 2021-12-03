@@ -175,7 +175,7 @@ def main():
     if comm.Get_rank() == ROOT_RANK:
         num_env_steps_thus_far = maybe_load_checkpoint(
             checkpoint_dir=args.checkpoint_dir,
-            run_name=f"{args.model_name}",
+            run_name=args.run_name,
             q_network=q_network,
             target_network=target_network,
             optimizer=optimizer,
