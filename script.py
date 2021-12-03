@@ -87,6 +87,27 @@ def create_optimizer(network, optimizer_name, learning_rate):
     raise ValueError(f"Optimizer name {optimizer_name}, not supported.")
 
 
+def create_annealing_fn(
+        initial_value,
+        final_value,
+        do_annealing,
+        start_step,
+        end_step
+):
+    def annealing_fn(t):
+        if not do_annealing:
+            return initial_value
+        if t < start_step:
+            return initial_value
+        numer = (t - start_step)
+        denom = (end_step - start_step)
+        frac_done = min(numer / denom, 1.0)
+        value_t = initial_value + (final_value-initial_value) * frac_done
+        return value_t
+    return annealing_fn
+
+
+
 def main():
     args = create_argparser().parse_args()
 
@@ -110,28 +131,53 @@ def main():
 
     scheduler = None
 
-    replay_memory = PrioritizedReplayMemory(capacity=
+    replay_memory = PrioritizedReplayMemory(
+        capacity=args.replay_memory_size,
+        alpha=args.alpha_init,
+        beta=args.beta_init,
+        eps=0.001)
 
+    # maybe load checkpoint.
 
+    # sync state.
 
-    def training_loop(
-            t0: int,
-            env: gym.Env,
-            q_network: QNetwork,
-            replay_memory: PrioritizedReplayMemory,
-            optimizer: tc.optim.Optimizer,
-            scheduler: Optional[tc.optim.lr_scheduler._LRScheduler],
-            target_network: QNetwork,
-            target_update_interval: int,
-            max_env_steps_per_process: int,
-            num_env_steps_per_policy_update: int,
-            num_env_steps_before_learning: int,
-            batches_per_policy_update: int,
-            batch_size: int,
-            alpha_annealing_fn: Callable[[int, int], float],
-            beta_annealing_fn: Callable[[int, int], float],
-            epsilon_anneal_fn: Callable[[int, int], float],
-            gamma: float,
-            double_dqn: bool,
-            huber_loss: bool
-    ):
+    # run it.
+    alpha_annealing_fn = create_annealing_fn(
+        initial_value=args.alpha_init,
+        final_value=0.0,
+        do_annealing=args.alpha_annealing,
+        start_step=args.alpha_annealing_start_step,
+        end_step=args.max_env_steps_per_process)
+    beta_annealing_fn = create_annealing_fn(
+        initial_value=args.beta_init,
+        final_value=1.0,
+        do_annealing=args.beta_annealing,
+        start_step=args.beta_annealing_start_step,
+        end_step=args.max_env_steps_per_process)
+    epsilon_annealing_fn = create_annealing_fn(
+        initial_value=args.epsilon_init,
+        final_value=args.epsilon_final,
+        do_annealing=args.epsilon_annealing,
+        start_step=args.epsilon_annealing_start_step,
+        end_step=args.epsilon_annealing_end_step)
+
+    training_loop(
+        t0=t0,
+        env=env,
+        q_network=q_network,
+        replay_memory=replay_memory,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        target_network=target_network,
+        target_update_interval=args.target_update_interval,
+        max_env_steps_per_process=args.max_env_steps_per_process,
+        num_env_steps_per_policy_update=args.num_env_steps_per_policy_update,
+        num_env_steps_before_learning=args.num_env_steps_before_learning,
+        batches_per_policy_update=args.batches_per_policy_update,
+        batch_size=args.batch_size,
+        alpha_annealing_fn=alpha_annealing_fn,
+        beta_annealing_fn=beta_annealing_fn,
+        epsilon_anneal_fn=epsilon_annealing_fn,
+        gamma=args.discount_gamma,
+        double_dqn=bool(args.double_dqn),
+        huber_loss=bool(args.huber_loss))
