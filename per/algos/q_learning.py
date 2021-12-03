@@ -106,9 +106,9 @@ def training_loop(
         num_env_steps_thus_far: int,
         batches_per_policy_update: int,
         batch_size: int,
-        alpha_annealing_fn: Callable[[int, int], float],
-        beta_annealing_fn: Callable[[int, int], float],
-        epsilon_anneal_fn: Callable[[int, int], float],
+        alpha_annealing_fn: Callable[[int], float],
+        beta_annealing_fn: Callable[[int], float],
+        epsilon_anneal_fn: Callable[[int], float],
         gamma: float,
         double_dqn: bool,
         huber_loss: bool
@@ -122,7 +122,7 @@ def training_loop(
                 target_network=target_network)
 
         ### act.
-        epsilon_t = epsilon_anneal_fn(t, max_env_steps_per_process)
+        epsilon_t = epsilon_anneal_fn(t)
         a_t = q_network.sample(
             x=tc.FloatTensor(o_t).unsqueeze(0), epsilon=epsilon_t)
         a_t = a_t.squeeze(0).detach().numpy()
@@ -133,8 +133,8 @@ def training_loop(
         d_t = float(d_t)
 
         ### update replay memory.
-        alpha_t = alpha_annealing_fn(t, max_env_steps_per_process)
-        beta_t = beta_annealing_fn(t, max_env_steps_per_process)
+        alpha_t = alpha_annealing_fn(t)
+        beta_t = beta_annealing_fn(t)
         replay_memory.update_alpha(alpha_t)
         replay_memory.update_beta(beta_t)
 
