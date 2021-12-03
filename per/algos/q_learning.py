@@ -93,7 +93,6 @@ def compute_losses(
 
 
 def training_loop(
-        t0: int,
         env: gym.Env,
         q_network: QNetwork,
         replay_memory: PrioritizedReplayMemory,
@@ -104,6 +103,7 @@ def training_loop(
         max_env_steps_per_process: int,
         num_env_steps_per_policy_update: int,
         num_env_steps_before_learning: int,
+        num_env_steps_thus_far: int,
         batches_per_policy_update: int,
         batch_size: int,
         alpha_annealing_fn: Callable[[int, int], float],
@@ -114,7 +114,7 @@ def training_loop(
         huber_loss: bool
 ):
     o_t = env.reset()
-    for t in range(t0, max_env_steps_per_process):
+    for t in range(num_env_steps_thus_far, max_env_steps_per_process):
         ### maybe update target network.
         if mod_check(t, num_env_steps_before_learning, target_update_interval):
             update_target_network(

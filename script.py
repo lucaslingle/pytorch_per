@@ -147,9 +147,9 @@ def main():
         eps=0.001)
 
     ### load checkpoint, if applicable.
-    env_steps_so_far = 0
+    num_env_steps_thus_far = 0
     if comm.Get_rank() == ROOT_RANK:
-        env_steps_so_far = maybe_load_checkpoint(
+        num_env_steps_thus_far = maybe_load_checkpoint(
             checkpoint_dir=args.checkpoint_dir,
             run_name=f"{args.model_name}",
             q_network=q_network,
@@ -159,7 +159,7 @@ def main():
             steps=None)
 
     ### sync state.
-    env_steps_so_far = comm.bcast(env_steps_so_far, root=ROOT_RANK)
+    num_env_steps_thus_far = comm.bcast(num_env_steps_thus_far, root=ROOT_RANK)
     sync_state(
         q_network=q_network,
         target_network=target_network,
@@ -190,7 +190,6 @@ def main():
 
     ### run it!
     training_loop(
-        t0=env_steps_so_far,
         env=env,
         q_network=q_network,
         replay_memory=replay_memory,
@@ -201,6 +200,7 @@ def main():
         max_env_steps_per_process=args.max_env_steps_per_process,
         num_env_steps_per_policy_update=args.num_env_steps_per_policy_update,
         num_env_steps_before_learning=args.num_env_steps_before_learning,
+        num_env_steps_thus_far=num_env_steps_thus_far,
         batches_per_policy_update=args.batches_per_policy_update,
         batch_size=args.batch_size,
         alpha_annealing_fn=alpha_annealing_fn,
