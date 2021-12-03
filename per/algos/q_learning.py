@@ -46,8 +46,6 @@ def compute_td_errs(
         gamma: float,
         double_dqn: bool
 ):
-    # TODO(lucaslingle):
-    #   look into issue with gather not returning expected results.
     o_t = extract_field(experience_tuples, 's_t', 'float')
     a_t = extract_field(experience_tuples, 'a_t', 'long')
     r_t = extract_field(experience_tuples, 'r_t', 'float')
