@@ -110,6 +110,18 @@ def create_optimizer(network, optimizer_name, learning_rate):
     raise ValueError(f"Optimizer name {optimizer_name}, not supported.")
 
 
+def create_scheduler():
+    return None
+
+
+def create_replay_memory(replay_memory_size, alpha_init, beta_init):
+    return PrioritizedReplayMemory(
+        capacity=replay_memory_size,
+        alpha=alpha_init,
+        beta=beta_init,
+        eps=0.001)
+
+
 def create_annealing_fn(
         initial_value,
         final_value,
@@ -151,13 +163,12 @@ def main():
         optimizer_name=args.optimizer_name,
         learning_rate=args.learning_rate)
 
-    scheduler = None
+    scheduler = create_scheduler()
 
-    replay_memory = PrioritizedReplayMemory(
-        capacity=args.replay_memory_size,
-        alpha=args.alpha_init,
-        beta=args.beta_init,
-        eps=0.001)
+    replay_memory = create_replay_memory(
+        replay_memory_size=args.replay_memory_size,
+        alpha_init=args.alpha_init,
+        beta_init=args.beta_init)
 
     ### load checkpoint, if applicable.
     num_env_steps_thus_far = 0
