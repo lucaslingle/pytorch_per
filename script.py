@@ -13,6 +13,11 @@ from per.agents.dqn import QNetwork
 from per.algos.replay import PrioritizedReplayMemory
 from per.algos.q_learning import training_loop
 
+from per.utils.checkpoint_util import maybe_load_checkpoint, save_checkpoint
+from per.utils.comm_util import get_comm, sync_state
+from per.utils.constants import ROOT_RANK
+from per.utils.atari_util import make_atari, wrap_deepmind
+
 
 def create_argparser():
     parser = argparse.ArgumentParser(
@@ -107,10 +112,17 @@ def create_annealing_fn(
 
 def main():
     args = create_argparser().parse_args()
+    comm = get_comm()
 
-    # get comm
-
-    # create env
+    # create env.
+    env = make_atari(args.env_name)
+    env.seed(0)
+    env = wrap_deepmind(
+        env=env,
+        frame_stack=True,
+        clip_rewards=(args.mode == 'train'),
+        episode_life=(args.mode == 'train'))
+    env.seed(0)
 
     # create learning system.
     q_network = create_net(
@@ -134,9 +146,27 @@ def main():
         beta=args.beta_init,
         eps=0.001)
 
-    # maybe load checkpoint.
+    # load checkpoint, if applicable.
+    env_steps_so_far = 0
+    if comm.Get_rank() == ROOT_RANK:
+        env_steps_so_far = maybe_load_checkpoint(
+            checkpoint_dir=args.checkpoint_dir,
+            run_name=f"{args.model_name}",
+            q_network=q_network,
+            target_network=target_network,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            steps=None)
 
     # sync state.
+    env_steps_so_far = comm.bcast(env_steps_so_far, root=ROOT_RANK)
+    sync_state(
+        q_network=q_network,
+        target_network=target_network,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        comm=comm,
+        root=ROOT_RANK)
 
     # run it.
     alpha_annealing_fn = create_annealing_fn(
@@ -159,7 +189,7 @@ def main():
         end_step=args.epsilon_annealing_end_step)
 
     training_loop(
-        t0=t0,
+        t0=env_steps_so_far,
         env=env,
         q_network=q_network,
         replay_memory=replay_memory,
