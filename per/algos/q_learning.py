@@ -122,9 +122,9 @@ def training_loop(
                 target_network=target_network)
 
         ### act.
-        epsilon_t = epsilon_anneal_fn(t)
         a_t = q_network.sample(
-            x=tc.FloatTensor(o_t).unsqueeze(0), epsilon=epsilon_t)
+            x=tc.FloatTensor(o_t).unsqueeze(0),
+            epsilon=epsilon_anneal_fn(t))
         a_t = a_t.squeeze(0).detach().numpy()
 
         o_tp1, r_t, d_t, _ = env.step(action=a_t)
@@ -133,10 +133,8 @@ def training_loop(
         d_t = float(d_t)
 
         ### update replay memory.
-        alpha_t = alpha_annealing_fn(t)
-        beta_t = beta_annealing_fn(t)
-        replay_memory.update_alpha(alpha_t)
-        replay_memory.update_beta(beta_t)
+        replay_memory.update_alpha(alpha_annealing_fn(t))
+        replay_memory.update_beta(beta_annealing_fn(t))
 
         experience_tuple_t = ExperienceTuple(
             s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
