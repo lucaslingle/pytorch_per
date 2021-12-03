@@ -126,7 +126,9 @@ def training_loop(
         gamma: float,
         double_dqn: bool,
         huber_loss: bool,
-        comm: type(MPI.COMM_WORLD)
+        comm: type(MPI.COMM_WORLD),
+        checkpoint_fn: Callable[[int], None],
+        checkpoint_interval: int
 ):
     o_t = env.reset()
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
@@ -177,3 +179,6 @@ def training_loop(
                 optimizer.step()
                 if scheduler:
                     scheduler.step()
+
+        if mod_check(t, num_env_steps_before_learning, checkpoint_interval):
+            checkpoint_fn(t+1)

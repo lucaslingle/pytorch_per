@@ -3,6 +3,7 @@ Script to operate DQN agents trained with Prioritized Experience Replay.
 """
 
 import argparse
+import functools
 
 import torch as tc
 import gym
@@ -31,7 +32,7 @@ def create_argparser():
 
     ### training hparams
     parser.add_argument("--optimizer_name", choices=['rmsprop', 'adam', 'sgd'], default='rmsprop')
-    parser.add_argument("--learning_rate", type=float, default=8.25e-5)
+    parser.add_argument("--learning_rate", type=float, default=6.25e-5)
     parser.add_argument("--huber_loss", choices=[0,1], default=1)
     parser.add_argument("--target_update_interval", type=int, default=1e4)
     parser.add_argument("--max_env_steps_per_process", type=int, default=50e6)
@@ -54,7 +55,24 @@ def create_argparser():
     parser.add_argument("--beta_annealing", choice=[0,1], default=1)
     parser.add_argument("--alpha_annealing_start_step", type=int, default=0)
     parser.add_argument("--beta_annealing_start_step", type=int, default=0)
+
+    ### checkpointing
+    parser.add_argument("--checkpoint_dir", type=str, default='checkpoints/')
+    parser.add_argument("--run_name", type=str, default='default_hparams')
+    parser.add_argument("--checkpoint_interval", type=int, default=1e3)
     return parser
+
+
+def create_env(env_name, mode):
+    env = make_atari(env_name)
+    env.seed(0)
+    env = wrap_deepmind(
+        env=env,
+        frame_stack=True,
+        clip_rewards=(mode == 'train'),
+        episode_life=(mode == 'train'))
+    env.seed(0)
+    return env
 
 
 def create_net(num_actions, dueling_head):
@@ -115,14 +133,9 @@ def main():
     comm = get_comm()
 
     ### create env.
-    env = make_atari(args.env_name)
-    env.seed(0)
-    env = wrap_deepmind(
-        env=env,
-        frame_stack=True,
-        clip_rewards=(args.mode == 'train'),
-        episode_life=(args.mode == 'train'))
-    env.seed(0)
+    env = create_env(
+        env_name=args.env_name,
+        mode=args.mode)
 
     ### create learning system.
     q_network = create_net(
@@ -188,6 +201,16 @@ def main():
         start_step=args.epsilon_annealing_start_step,
         end_step=args.epsilon_annealing_end_step)
 
+    ### create checkpointing callback.
+    checkpoint_fn = functools.partial(
+        save_checkpoint,
+        checkpoint_dir=args.checkpoint_dir,
+        run_name=args.run_name,
+        q_network=q_network,
+        target_network=target_network,
+        optimizer=optimizer,
+        scheduler=scheduler)
+
     ### run it!
     training_loop(
         env=env,
@@ -205,7 +228,10 @@ def main():
         batch_size=args.batch_size,
         alpha_annealing_fn=alpha_annealing_fn,
         beta_annealing_fn=beta_annealing_fn,
-        epsilon_anneal_fn=epsilon_annealing_fn,
+        epsilon_annealing_fn=epsilon_annealing_fn,
         gamma=args.discount_gamma,
         double_dqn=bool(args.double_dqn),
-        huber_loss=bool(args.huber_loss))
+        huber_loss=bool(args.huber_loss),
+        comm=comm,
+        checkpoint_fn=checkpoint_fn,
+        checkpoint_interval=args.checkpoint_interval)
