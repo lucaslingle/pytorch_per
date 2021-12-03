@@ -97,15 +97,12 @@ def create_annealing_fn(
     def annealing_fn(t):
         if not do_annealing:
             return initial_value
-        if t < start_step:
-            return initial_value
         numer = (t - start_step)
         denom = (end_step - start_step)
-        frac_done = min(numer / denom, 1.0)
+        frac_done = max(0.0, min(numer / denom, 1.0))
         value_t = initial_value + (final_value-initial_value) * frac_done
         return value_t
     return annealing_fn
-
 
 
 def main():
