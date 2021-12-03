@@ -29,13 +29,11 @@ def get_tensor(
         field_name: str,
         dtype: str
 ):
-    assert dtype in ['float', 'long']
     lt = list(map(lambda et: getattr(et, field_name), experience_tuples))
-    tn = tc.stack(lt, dim=0)
     if dtype == 'float':
-        return tc.FloatTensor(tn)
+        return tc.FloatTensor(lt)
     if dtype == 'long':
-        return tc.LongTensor(tn)
+        return tc.LongTensor(lt)
     raise ValueError('Unsupported dtype for function extract_field.')
 
 
