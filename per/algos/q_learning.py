@@ -108,7 +108,7 @@ def training_loop(
         batch_size: int,
         alpha_annealing_fn: Callable[[int], float],
         beta_annealing_fn: Callable[[int], float],
-        epsilon_anneal_fn: Callable[[int], float],
+        epsilon_annealing_fn: Callable[[int], float],
         gamma: float,
         double_dqn: bool,
         huber_loss: bool
@@ -124,7 +124,7 @@ def training_loop(
         ### act.
         a_t = q_network.sample(
             x=tc.FloatTensor(o_t).unsqueeze(0),
-            epsilon=epsilon_anneal_fn(t))
+            epsilon=epsilon_annealing_fn(t))
         a_t = a_t.squeeze(0).detach().numpy()
 
         o_tp1, r_t, d_t, _ = env.step(action=a_t)
