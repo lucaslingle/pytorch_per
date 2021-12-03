@@ -55,7 +55,7 @@ def get_tensor(
     raise ValueError('Unsupported dtype for function extract_field.')
 
 
-def compute_td_errs(
+def compute_qvalues_and_targets(
         experience_tuples: List[ExperienceTuple],
         q_network: QNetwork,
         target_network: QNetwork,
@@ -83,11 +83,7 @@ def compute_td_errs(
 
         qs_t = q_network(o_t)
         q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
-    return {
-        "y_t": y_t,
-        "q_t": q_t,
-        "delta_t": y_t - q_t
-    }
+    return q_t, y_t
 
 
 def compute_losses(
@@ -157,21 +153,23 @@ def training_loop(
         if mod_check(t, num_env_steps_before_learning, num_env_steps_per_policy_update):
             for _ in range(batches_per_policy_update):
                 samples = replay_memory.sample(batch_size=batch_size)
-                mb_td_errs = compute_td_errs(
+                qs, ys = compute_qvalues_and_targets(
                     experience_tuples=samples['data'],
                     q_network=q_network,
                     target_network=target_network,
                     gamma=gamma,
                     double_dqn=double_dqn)
 
+                deltas = ys - qs
                 replay_memory.update_td_errs(
                     indices=samples['indices'],
-                    td_errs=list(mb_td_errs['delta_t'].detach().numpy()))
+                    td_errs=list(deltas.detach().numpy()))
 
+                ws = tc.FloatTensor(samples['weights'])
                 mb_loss = compute_losses(
-                    inputs=mb_td_errs['q_t'],
-                    targets=mb_td_errs['y_t'],
-                    weights=tc.FloatTensor(samples['weights']),
+                    inputs=qs,
+                    targets=ys,
+                    weights=ws,
                     huber_loss=huber_loss)
                 optimizer.zero_grad()
                 mb_loss.backward()
