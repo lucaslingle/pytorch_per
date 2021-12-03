@@ -98,7 +98,7 @@ def compute_losses(
         targets: tc.Tensor,
         weights: tc.Tensor,
         huber_loss: bool
-) -> tc.FloatTensor:
+) -> tc.Tensor:
     if huber_loss:
         mb_loss_terms = tc.nn.SmoothL1Loss()(
             inputs=inputs,
@@ -109,8 +109,8 @@ def compute_losses(
             inputs=inputs,
             targets=targets,
             reduction='none')
-    mb_loss = tc.sum(weights * mb_loss_terms)
-    return mb_loss.float()
+    loss = tc.sum(weights * mb_loss_terms)
+    return loss
 
 
 def training_loop(
