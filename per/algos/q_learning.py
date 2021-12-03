@@ -68,7 +68,7 @@ def compute_qvalues_and_targets(
         target_network: QNetwork,
         gamma: float,
         double_dqn: bool
-) -> Tuple[tc.FloatTensor, tc.FloatTensor]:
+) -> Tuple[tc.Tensor, tc.Tensor]:
     o_t = get_tensor(experience_tuples, 's_t', 'float')
     a_t = get_tensor(experience_tuples, 'a_t', 'long')
     r_t = get_tensor(experience_tuples, 'r_t', 'float')
