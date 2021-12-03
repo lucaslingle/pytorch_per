@@ -132,12 +132,12 @@ def training_loop(
             o_tp1 = env.reset()
         d_t = float(d_t)
 
+        experience_tuple_t = ExperienceTuple(
+            s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
+
         ### update replay memory.
         replay_memory.update_alpha(alpha_annealing_fn(t))
         replay_memory.update_beta(beta_annealing_fn(t))
-
-        experience_tuple_t = ExperienceTuple(
-            s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
         replay_memory.insert(experience_tuple_t)
 
         ### maybe learn.
