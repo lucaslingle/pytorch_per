@@ -146,6 +146,7 @@ def training_loop(
             epsilon=epsilon_annealing_fn(t),
             o_t=o_t,
             env=env)
+        o_t = experience_tuple_t.s_tp1
 
         ### update replay memory.
         replay_memory.update_alpha(alpha_annealing_fn(t))
