@@ -56,22 +56,22 @@ def compute_td_errs(
         qs_tp1 = q_network(o_tp1)
         argmax_a_tp1 = tc.argmax(qs_tp1, dim=-1)
         q_tp1_tgt = tc.gather(input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1)
-        y_t = r_t + (1. - d_t) * gamma * q_tp1_tgt
+        y_t = (r_t + (1. - d_t) * gamma * q_tp1_tgt).detach()
 
         qs_t = q_network(o_t)
         q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
-
-        td_errs = y_t.detach() - q_t
     else:
         qs_tp1_tgt = target_network(o_tp1)
         q_tp1_tgt = tc.max(qs_tp1_tgt, dim=-1)
-        y_t = r_t + (1. - d_t) * gamma * q_tp1_tgt
+        y_t = (r_t + (1. - d_t) * gamma * q_tp1_tgt).detach()
 
         qs_t = q_network(o_t)
         q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
-
-        td_errs = y_t.detach() - q_t
-    return td_errs
+    return {
+        "y_t": y_t,
+        "q_t": q_t,
+        "delta_t": y_t - q_t
+    }
 
 
 def training_loop(
@@ -137,12 +137,18 @@ def training_loop(
 
                 replay_memory.update_td_errs(
                     indices=samples['indices'],
-                    td_errs=list(mb_td_errs.detach().numpy()))
+                    td_errs=list(mb_td_errs['delta_t'].detach().numpy()))
 
                 if huber_loss:
-                    mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
+                    mb_loss_terms = tc.nn.SmoothL1Loss()(
+                        inputs=mb_td_errs['q_t'],
+                        targets=mb_td_errs['y_t'],
+                        reduction='none')
                 else:
-                    mb_loss_terms = tc.nn.MSELoss()(mb_td_errs, reduction='none')
+                    mb_loss_terms = tc.nn.MSELoss()(
+                        inputs=mb_td_errs['q_t'],
+                        targets=mb_td_errs['y_t'],
+                        reduction='none')
                 mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
                 optimizer.zero_grad()
                 mb_loss.backward()
