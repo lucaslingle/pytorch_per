@@ -24,7 +24,7 @@ def update_target_network(
         dest.copy_(src)
 
 
-def extract_field(
+def get_tensor(
         experience_tuples: List[ExperienceTuple],
         field_name: str,
         dtype: str
@@ -46,11 +46,11 @@ def compute_td_errs(
         gamma: float,
         double_dqn: bool
 ):
-    o_t = extract_field(experience_tuples, 's_t', 'float')
-    a_t = extract_field(experience_tuples, 'a_t', 'long')
-    r_t = extract_field(experience_tuples, 'r_t', 'float')
-    d_t = extract_field(experience_tuples, 'd_t', 'float')
-    o_tp1 = extract_field(experience_tuples, 's_tp1', 'float')
+    o_t = get_tensor(experience_tuples, 's_t', 'float')
+    a_t = get_tensor(experience_tuples, 'a_t', 'long')
+    r_t = get_tensor(experience_tuples, 'r_t', 'float')
+    d_t = get_tensor(experience_tuples, 'd_t', 'float')
+    o_tp1 = get_tensor(experience_tuples, 's_tp1', 'float')
     if double_dqn:
         qs_tp1_tgt = target_network(o_tp1)
         qs_tp1 = q_network(o_tp1)
