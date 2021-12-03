@@ -114,7 +114,7 @@ def main():
     args = create_argparser().parse_args()
     comm = get_comm()
 
-    # create env.
+    ### create env.
     env = make_atari(args.env_name)
     env.seed(0)
     env = wrap_deepmind(
@@ -124,7 +124,7 @@ def main():
         episode_life=(args.mode == 'train'))
     env.seed(0)
 
-    # create learning system.
+    ### create learning system.
     q_network = create_net(
         num_actions=env.num_actions,
         dueling_head=args.dueling_head)
@@ -146,7 +146,7 @@ def main():
         beta=args.beta_init,
         eps=0.001)
 
-    # load checkpoint, if applicable.
+    ### load checkpoint, if applicable.
     env_steps_so_far = 0
     if comm.Get_rank() == ROOT_RANK:
         env_steps_so_far = maybe_load_checkpoint(
@@ -158,7 +158,7 @@ def main():
             scheduler=scheduler,
             steps=None)
 
-    # sync state.
+    ### sync state.
     env_steps_so_far = comm.bcast(env_steps_so_far, root=ROOT_RANK)
     sync_state(
         q_network=q_network,
@@ -168,7 +168,7 @@ def main():
         comm=comm,
         root=ROOT_RANK)
 
-    # run it.
+    ### create annealing functions.
     alpha_annealing_fn = create_annealing_fn(
         initial_value=args.alpha_init,
         final_value=0.0,
@@ -188,6 +188,7 @@ def main():
         start_step=args.epsilon_annealing_start_step,
         end_step=args.epsilon_annealing_end_step)
 
+    ### run it!
     training_loop(
         t0=env_steps_so_far,
         env=env,
