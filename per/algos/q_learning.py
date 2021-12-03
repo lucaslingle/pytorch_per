@@ -187,5 +187,6 @@ def training_loop(
                 if scheduler:
                     scheduler.step()
 
+        ### maybe save checkpoint.
         if mod_check(t, num_env_steps_before_learning, checkpoint_interval):
             checkpoint_fn(t+1)
