@@ -92,7 +92,8 @@ def training_loop(
         beta_annealing_fn: Callable[[int, int], float],
         epsilon_anneal_fn: Callable[[int, int], float],
         gamma: float,
-        double_dqn: bool
+        double_dqn: bool,
+        huber_loss: bool
 ):
     o_t = env.reset()
     for t in range(t0, max_env_steps_per_process):
@@ -138,7 +139,10 @@ def training_loop(
                     indices=samples['indices'],
                     td_errs=list(mb_td_errs.detach().numpy()))
 
-                mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
+                if huber_loss:
+                    mb_loss_terms = tc.nn.SmoothL1Loss()(mb_td_errs, reduction='none')
+                else:
+                    mb_loss_terms = tc.nn.MSELoss()(mb_td_errs, reduction='none')
                 mb_loss = tc.sum(samples['weights'] * mb_loss_terms)
                 optimizer.zero_grad()
                 mb_loss.backward()
