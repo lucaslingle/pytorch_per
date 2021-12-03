@@ -7,6 +7,14 @@ from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 
 
+def mod_check(
+        step: int,
+        min_step: int,
+        mod: int
+):
+    return step >= min_step and step % mod == 0
+
+
 @tc.no_grad()
 def update_target_network(
         q_network: QNetwork,
@@ -77,6 +85,7 @@ def training_loop(
         target_update_interval: int,
         max_env_steps_per_process: int,
         num_env_steps_per_policy_update: int,
+        num_env_steps_before_learning: int,
         batches_per_policy_update: int,
         batch_size: int,
         alpha_annealing_fn: Callable[[int, int], float],
@@ -88,7 +97,7 @@ def training_loop(
     o_t = env.reset()
     for t in range(t0, max_env_steps_per_process):
         ### maybe update target network.
-        if t > 0 and t % target_update_interval == 0:
+        if mod_check(t, num_env_steps_before_learning, target_update_interval):
             update_target_network(
                 q_network=q_network,
                 target_network=target_network)
@@ -115,9 +124,7 @@ def training_loop(
         replay_memory.insert(experience_tuple_t)
 
         ### maybe learn.
-        if t > 0 and t % num_env_steps_per_policy_update == 0:
-            # TODO(lucaslingle):
-            #      check replay memory has at least min entries before learning
+        if mod_check(t, num_env_steps_before_learning, num_env_steps_per_policy_update):
             for _ in range(batches_per_policy_update):
                 samples = replay_memory.sample(batch_size=batch_size)
                 mb_td_errs = compute_td_errs(
