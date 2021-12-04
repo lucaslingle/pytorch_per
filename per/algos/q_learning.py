@@ -37,7 +37,7 @@ def step_env(
     a_t = q_network.sample(
         x=tc.FloatTensor(o_t).unsqueeze(0),
         epsilon=epsilon)
-    a_t = a_t.squeeze(0).detach().numpy()
+    a_t = int(a_t.squeeze(0).detach().numpy())
 
     o_tp1, r_t, d_t, _ = env.step(action=a_t)
     if d_t:
