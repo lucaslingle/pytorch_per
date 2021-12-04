@@ -78,18 +78,19 @@ def compute_qvalues_and_targets(
         qs_tp1_tgt = target_network(o_tp1)
         qs_tp1 = q_network(o_tp1)
         argmax_a_tp1 = tc.argmax(qs_tp1, dim=-1)
-        q_tp1_tgt = tc.gather(input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1)
+        q_tp1_tgt = tc.gather(
+            input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1.unsqueeze(-1)).squeeze(-1)
         y_t = (r_t + (1. - d_t) * gamma * q_tp1_tgt).detach()
 
         qs_t = q_network(o_t)
-        q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
+        q_t = tc.gather(input=qs_t, dim=-1, index=a_t.unsqueeze(-1)).squeeze(-1)
     else:
         qs_tp1_tgt = target_network(o_tp1)
         q_tp1_tgt = tc.max(qs_tp1_tgt, dim=-1)
         y_t = (r_t + (1. - d_t) * gamma * q_tp1_tgt).detach()
 
         qs_t = q_network(o_t)
-        q_t = tc.gather(input=qs_t, dim=-1, index=a_t)
+        q_t = tc.gather(input=qs_t, dim=-1, index=a_t.unsqueeze(-1)).squeeze(-1)
     return q_t, y_t
 
 
@@ -100,16 +101,11 @@ def compute_losses(
         huber_loss: bool
 ) -> tc.Tensor:
     if huber_loss:
-        mb_loss_terms = tc.nn.SmoothL1Loss()(
-            inputs=inputs,
-            targets=targets,
-            reduction='none')
+        criterion = tc.nn.SmoothL1Loss(reduction='none')
     else:
-        mb_loss_terms = tc.nn.MSELoss()(
-            inputs=inputs,
-            targets=targets,
-            reduction='none')
-    loss = tc.sum(weights * mb_loss_terms)
+        criterion = tc.nn.MSELoss(reduction='none')
+    loss_terms = criterion(input=inputs, target=targets)
+    loss = tc.sum(weights * loss_terms)
     return loss
 
 
@@ -137,7 +133,13 @@ def training_loop(
         checkpoint_fn: Callable[[int], None],
         checkpoint_interval: int
 ) -> None:
+
+    if num_env_steps_thus_far == 0:
+        update_target_network(
+            q_network=q_network,
+            target_network=target_network)
     o_t = env.reset()
+
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
         print(t)
         ### maybe update target network.
