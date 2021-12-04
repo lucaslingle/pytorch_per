@@ -141,7 +141,7 @@ def training_loop(
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
         ### maybe update target network.
         if mod_check(t, num_env_steps_before_learning, target_update_interval):
-             update_target_network(
+            update_target_network(
                 q_network=q_network,
                 target_network=target_network)
 
