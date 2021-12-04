@@ -43,7 +43,7 @@ def create_argparser():
     parser.add_argument("--discount_gamma", type=float, default=0.99)
     parser.add_argument("--epsilon_init", type=float, default=1.0)
     parser.add_argument("--epsilon_final", type=float, default=0.1)
-    parser.add_argument("--epsilon_annealing", choice=[0,1], default=1)
+    parser.add_argument("--epsilon_annealing", choices=[0,1], default=1)
     parser.add_argument("--epsilon_annealing_start_step", type=int, default=0)
     parser.add_argument("--epsilon_annealing_end_step", type=int, default=1e6)
 
@@ -51,8 +51,8 @@ def create_argparser():
     parser.add_argument("--replay_memory_size", type=int, default=1e6)
     parser.add_argument("--alpha_init", type=float, default=0.6)
     parser.add_argument("--beta_init", type=float, default=0.4)
-    parser.add_argument("--alpha_annealing", choice=[0,1], default=0)
-    parser.add_argument("--beta_annealing", choice=[0,1], default=1)
+    parser.add_argument("--alpha_annealing", choices=[0,1], default=0)
+    parser.add_argument("--beta_annealing", choices=[0,1], default=1)
     parser.add_argument("--alpha_annealing_start_step", type=int, default=0)
     parser.add_argument("--beta_annealing_start_step", type=int, default=0)
 
@@ -93,19 +93,19 @@ def create_net(num_actions, dueling_head):
 def create_optimizer(network, optimizer_name, learning_rate):
     if optimizer_name == 'rmsprop':
         return tc.optim.RMSprop(
-            params=network.params(),
+            params=network.parameters(),
             lr=learning_rate,
             momentum=0.95,
             alpha=0.95,
             eps=0.01)
     if optimizer_name == 'adam':
         return tc.optim.Adam(
-            params=network.params(),
+            params=network.parameters(),
             lr=learning_rate,
             eps=1e-6)
     if optimizer_name == 'sgd':
         return tc.optim.SGD(
-            params=network.params(),
+            params=network.parameters(),
             lr=learning_rate)
     raise ValueError(f"Optimizer name {optimizer_name}, not supported.")
 
@@ -151,11 +151,11 @@ def main():
 
     ### create learning system.
     q_network = create_net(
-        num_actions=env.num_actions,
+        num_actions=env.action_space.n,
         dueling_head=args.dueling_head)
 
     target_network = create_net(
-        num_actions=env.num_actions,
+        num_actions=env.action_space.n,
         dueling_head=args.dueling_head)
 
     optimizer = create_optimizer(
@@ -230,10 +230,10 @@ def main():
         optimizer=optimizer,
         scheduler=scheduler,
         target_network=target_network,
-        target_update_interval=args.target_update_interval,
-        max_env_steps_per_process=args.max_env_steps_per_process,
-        num_env_steps_per_policy_update=args.num_env_steps_per_policy_update,
-        num_env_steps_before_learning=args.num_env_steps_before_learning,
+        target_update_interval=int(args.target_update_interval),
+        max_env_steps_per_process=int(args.max_env_steps_per_process),
+        num_env_steps_per_policy_update=int(args.num_env_steps_per_policy_update),
+        num_env_steps_before_learning=int(args.num_env_steps_before_learning),
         num_env_steps_thus_far=num_env_steps_thus_far,
         batches_per_policy_update=args.batches_per_policy_update,
         batch_size=args.batch_size,

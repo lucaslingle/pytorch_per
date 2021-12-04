@@ -40,7 +40,7 @@ class NatureCNN(tc.nn.Module):
         self._init_weights()
 
     def _init_weights(self):
-        for m in self.conv_stack.modules():
+        for m in self._network.modules():
             if isinstance(m, tc.nn.Conv2d):
                 tc.nn.init.xavier_uniform_(m.weight)
                 tc.nn.init.zeros_(m.bias)
@@ -53,7 +53,5 @@ class NatureCNN(tc.nn.Module):
         return self._feature_dim
 
     def forward(self, x):
-        x /= 255.
-        x = x.permute(0, 3, 1, 2)
         features = self._network(x)
         return features

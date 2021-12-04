@@ -3,7 +3,7 @@ import torch as tc
 
 class QNetwork(tc.nn.Module):
     """
-    Wrapper class integrating a vision network and an action-value head.
+    Wrapper class integrating preprocessing, vision net, and action-value head.
     """
     def __init__(self, architecture, head):
         super().__init__()
@@ -11,6 +11,7 @@ class QNetwork(tc.nn.Module):
         self._head = head
 
     def forward(self, x):
+        x = x / 255.
         x = x.permute(0, 3, 1, 2)
         features = self._architecture(x)
         qpred = self._head(features)
@@ -25,7 +26,7 @@ class QNetwork(tc.nn.Module):
         qpred = self.forward(x)
         greedy_action = tc.argmax(qpred, dim=-1)
         random_action = tc.randint(
-            low=0, high=self._num_actions, size=batch_size)
+            low=0, high=self._head.num_actions, size=(batch_size,))
 
         action = (1-do_rand) * greedy_action + do_rand * random_action
         return action

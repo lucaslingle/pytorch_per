@@ -16,6 +16,10 @@ class LinearActionValueHead(tc.nn.Module):
         tc.nn.init.xavier_uniform_(self._linear.weight)
         tc.nn.init.zeros_(self._linear.bias)
 
+    @property
+    def num_actions(self):
+        return self._num_actions
+
     def forward(self, x):
         qpred = self._linear(x)
         return qpred
@@ -50,6 +54,10 @@ class DuelingActionValueHead(tc.nn.Module):
             if isinstance(m, tc.nn.Linear):
                 tc.nn.init.xavier_normal_(m.weight)
                 tc.nn.init.zeros_(m.bias)
+
+    @property
+    def num_actions(self):
+        return self._num_actions
 
     def forward(self, x):
         vpred = self._value_head(x)
