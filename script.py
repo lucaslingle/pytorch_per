@@ -63,15 +63,6 @@ def create_argparser():
     return parser
 
 
-def magic(func):
-    # this works but it doesnt make the code that much cleaner
-    # so we're just going to leave it here for now without using it
-    def wrapper(**kwargs):
-        sf = list(inspect.signature(func).parameters.keys())
-        return func(**{k: kwargs[k] for k in sf})
-    return wrapper
-
-
 def create_env(env_name, mode):
     env = make_atari(env_name)
     env.seed(None)
