@@ -92,9 +92,8 @@ class PrioritizedReplayMemory:
         self._update_priorities(self._expiration_idx)
         self._step()
 
-    def sample(self, batch_size, debug=False):
+    def sample(self, batch_size):
         # samples a batch of experience tuples of size batch_size.
-        assert self._total_steps >= self._capacity or debug
         p_total = self._sumtree[0].summed_priority
 
         # get uniform random numbers in intervals

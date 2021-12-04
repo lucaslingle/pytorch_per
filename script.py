@@ -3,7 +3,7 @@ Script to operate DQN agents trained with Prioritized Experience Replay.
 """
 
 import argparse
-import inspect
+import time
 import functools
 
 import torch as tc
@@ -181,6 +181,7 @@ def main():
             optimizer=optimizer,
             scheduler=scheduler,
             steps=None)
+        time.sleep(5)
 
     ### sync state.
     num_env_steps_thus_far = comm.bcast(num_env_steps_thus_far, root=ROOT_RANK)

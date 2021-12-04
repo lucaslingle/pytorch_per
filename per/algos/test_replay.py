@@ -72,7 +72,7 @@ class TestMemory(unittest.TestCase):
 
     def test_sample(self):
         self.mem.insert(self.et)
-        results = self.mem.sample(batch_size=1, debug=True)
+        results = self.mem.sample(batch_size=1)
         self.assertEqual(results['indices'][0], self.mem._tree_size-self.mem._capacity)
         self.assertEqual(results['data'][0], self.et)
 
