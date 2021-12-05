@@ -165,7 +165,7 @@ def main():
     scheduler = create_scheduler()
 
     replay_memory = create_replay_memory(
-        replay_memory_size=args.replay_memory_size,
+        replay_memory_size=args.replay_memory_size // comm.Get_size(),
         alpha_init=args.alpha_init,
         beta_init=args.beta_init)
 
@@ -192,60 +192,82 @@ def main():
         comm=comm,
         root=ROOT_RANK)
 
-    ### create annealing functions.
-    alpha_annealing_fn = create_annealing_fn(
-        initial_value=args.alpha_init,
-        final_value=0.0,
-        do_annealing=bool(args.alpha_annealing),
-        start_step=args.alpha_annealing_start_step,
-        end_step=args.max_env_steps_per_process)
-    beta_annealing_fn = create_annealing_fn(
-        initial_value=args.beta_init,
-        final_value=1.0,
-        do_annealing=bool(args.beta_annealing),
-        start_step=args.beta_annealing_start_step,
-        end_step=args.max_env_steps_per_process)
-    epsilon_annealing_fn = create_annealing_fn(
-        initial_value=args.epsilon_init,
-        final_value=args.epsilon_final,
-        do_annealing=bool(args.epsilon_annealing),
-        start_step=args.epsilon_annealing_start_step,
-        end_step=args.epsilon_annealing_end_step)
+    if args.mode == 'train':
+        ### create annealing functions.
+        alpha_annealing_fn = create_annealing_fn(
+            initial_value=args.alpha_init,
+             final_value=0.0,
+            do_annealing=bool(args.alpha_annealing),
+            start_step=args.alpha_annealing_start_step,
+            end_step=args.max_env_steps_per_process)
+        beta_annealing_fn = create_annealing_fn(
+            initial_value=args.beta_init,
+            final_value=1.0,
+            do_annealing=bool(args.beta_annealing),
+            start_step=args.beta_annealing_start_step,
+            end_step=args.max_env_steps_per_process)
+        epsilon_annealing_fn = create_annealing_fn(
+            initial_value=args.epsilon_init,
+            final_value=args.epsilon_final,
+            do_annealing=bool(args.epsilon_annealing),
+            start_step=args.epsilon_annealing_start_step,
+            end_step=args.epsilon_annealing_end_step)
 
-    ### create checkpointing callback.
-    checkpoint_fn = functools.partial(
-        save_checkpoint,
-        checkpoint_dir=args.checkpoint_dir,
-        run_name=args.run_name,
-        q_network=q_network,
-        target_network=target_network,
-        optimizer=optimizer,
-        scheduler=scheduler)
+        ### create checkpointing callback.
+        checkpoint_fn = functools.partial(
+            save_checkpoint,
+            checkpoint_dir=args.checkpoint_dir,
+            run_name=args.run_name,
+            q_network=q_network,
+            target_network=target_network,
+            optimizer=optimizer,
+            scheduler=scheduler)
 
-    ### run it!
-    training_loop(
-        env=env,
-        q_network=q_network,
-        replay_memory=replay_memory,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        target_network=target_network,
-        target_update_interval=int(args.target_update_interval),
-        max_env_steps_per_process=int(args.max_env_steps_per_process),
-        num_env_steps_per_policy_update=int(args.num_env_steps_per_policy_update),
-        num_env_steps_before_learning=int(args.num_env_steps_before_learning),
-        num_env_steps_thus_far=num_env_steps_thus_far,
-        batches_per_policy_update=args.batches_per_policy_update,
-        batch_size=args.batch_size,
-        alpha_annealing_fn=alpha_annealing_fn,
-        beta_annealing_fn=beta_annealing_fn,
-        epsilon_annealing_fn=epsilon_annealing_fn,
-        gamma=args.discount_gamma,
-        double_dqn=bool(args.double_dqn),
-        huber_loss=bool(args.huber_loss),
-        comm=comm,
-        checkpoint_fn=checkpoint_fn,
-        checkpoint_interval=args.checkpoint_interval)
+        ### run it!
+        training_loop(
+            env=env,
+            q_network=q_network,
+            replay_memory=replay_memory,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            target_network=target_network,
+            target_update_interval=int(args.target_update_interval),
+            max_env_steps_per_process=int(args.max_env_steps_per_process),
+            num_env_steps_per_policy_update=int(args.num_env_steps_per_policy_update),
+            num_env_steps_before_learning=int(args.num_env_steps_before_learning),
+            num_env_steps_thus_far=num_env_steps_thus_far,
+            batches_per_policy_update=args.batches_per_policy_update,
+            batch_size=args.batch_size,
+            alpha_annealing_fn=alpha_annealing_fn,
+            beta_annealing_fn=beta_annealing_fn,
+            epsilon_annealing_fn=epsilon_annealing_fn,
+            gamma=args.discount_gamma,
+            double_dqn=bool(args.double_dqn),
+            huber_loss=bool(args.huber_loss),
+            comm=comm,
+            checkpoint_fn=checkpoint_fn,
+            checkpoint_interval=args.checkpoint_interval)
+
+    elif args.mode == 'video':
+        ### temporary code replace with video saving functionality later
+        if comm.Get_rank() == ROOT_RANK:
+            with tc.no_grad():
+                done_t = False
+                o_t = env.reset()
+                r_total = 0.
+                while not done_t:
+                    a_t = q_network.sample(
+                        x=tc.FloatTensor(o_t).unsqueeze(0),
+                        epsilon=0.01)
+                    a_t = int(a_t.squeeze(0).detach().numpy())
+                    o_tp1, r_t, done_t, _ = env.step(action=a_t)
+                    _ = env.render()
+                    r_total += r_t
+                    o_t = o_tp1
+                print(r_total)
+
+    else:
+        raise NotImplementedError
 
 
 if __name__ == '__main__':
