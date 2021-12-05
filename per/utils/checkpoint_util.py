@@ -159,7 +159,7 @@ def maybe_load_checkpoint(
         if len(set(steps_list)) != 1:
             msg = "Iterates not aligned in latest checkpoints!\n" + \
                 "Delete the offending file(s) and try again."
-            raise RuntimeError(msg)
+            raise ValueError(msg)
     except FileNotFoundError:
         print(f"Bad checkpoint or none at {base_path} with step {steps}.")
         print("Running from scratch.")
