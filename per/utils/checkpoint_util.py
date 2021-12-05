@@ -118,7 +118,7 @@ def save_checkpoint(
     Returns:
         None
     """
-    kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
+    kind_names = ['qnetwork', 'tnetwork', 'optimizer', 'scheduler']
     checkpointables = [q_network, target_network, optimizer, scheduler]
     checkpointables = [c for c in checkpointables if c is not None]
     base_path = os.path.join(checkpoint_dir, run_name)
