@@ -69,10 +69,10 @@ def _serialize_and_save_state_dict(
 
 
 def _maybe_deserialize_and_load_state_dict(
+        steps,
         base_path,
         kind_name,
-        checkpointable,
-        steps
+        checkpointable
 ):
     """
     Tries to load a checkpoint from checkpoint_dir/model_name/.
@@ -80,11 +80,11 @@ def _maybe_deserialize_and_load_state_dict(
     from a newly initialized model.
 
     Args:
+        steps: step number for the checkpoint to locate.
         base_path: base path for checkpointing.
         kind_name: kind name of torch module being checkpointed
             (e.g., qnetwork, optimizer, etc.).
         checkpointable: torch module/optimizer/scheduler to save checkpoint for.
-        steps: num steps for the checkpoint to locate.
 
     Returns:
         number of env steps experienced by loaded checkpoint.
@@ -105,6 +105,21 @@ def save_checkpoint(
         optimizer,
         scheduler
 ):
+    """
+    Saves a checkpoint of the latest model, optimizer, scheduler state.
+    Also tidies up checkpoint_dir/run_name/ by keeping only last 5 ckpts of each type.
+
+    Args:
+        steps: step number for the checkpoint to save.
+        base_path: base path for checkpointing.
+        q_network: q-network.
+        target_network: target network.
+        optimizer: optimizer.
+        scheduler: optional learning rate scheduler.
+
+    Returns:
+        None
+    """
     kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
     checkpointables = [q_network, target_network, optimizer, scheduler]
     checkpointables = [c for c in checkpointables if c is not None]
