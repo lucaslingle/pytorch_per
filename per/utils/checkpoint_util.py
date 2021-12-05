@@ -14,7 +14,7 @@ def _format_name(kind, steps):
 
 
 def _parse_name(filename):
-    kind, steps = filename.split(".")[0].split("_")
+    kind, _, steps = filename.split(".")[0].rpartition("_")
     steps = int(steps)
     return {
         "kind": kind,
@@ -81,7 +81,7 @@ def _deserialize_and_load_state_dict(
         steps: step number for the checkpoint to load. if none, uses latest.
         base_path: base path for checkpointing.
         kind_name: kind name of torch module being loaded
-            (e.g., qnetwork, optimizer, etc.).
+            (e.g., q_network, optimizer, etc.).
         checkpointable: torch module/optimizer/scheduler to load checkpoint for.
 
     Returns:
@@ -118,7 +118,7 @@ def save_checkpoint(
     Returns:
         None
     """
-    kind_names = ['qnetwork', 'tnetwork', 'optimizer', 'scheduler']
+    kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
     checkpointables = [q_network, target_network, optimizer, scheduler]
     checkpointables = [c for c in checkpointables if c is not None]
     base_path = os.path.join(checkpoint_dir, run_name)
@@ -155,7 +155,7 @@ def maybe_load_checkpoint(
         steps: optional step number. if none, uses latest.
     """
 
-    kind_names = ['qnetwork', 'tnetwork', 'optimizer', 'scheduler']
+    kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
     checkpointables = [q_network, target_network, optimizer, scheduler]
     checkpointables = [c for c in checkpointables if c is not None]
     base_path = os.path.join(checkpoint_dir, run_name)
