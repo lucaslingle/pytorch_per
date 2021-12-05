@@ -8,6 +8,7 @@ from mpi4py import MPI
 from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
 from per.utils.comm_util import sync_grads, ROOT_RANK
+from per.utils.checkpoint_util import save_checkpoint, save_replay_memory
 
 
 def mod_check(
@@ -130,7 +131,8 @@ def training_loop(
         double_dqn: bool,
         huber_loss: bool,
         comm: type(MPI.COMM_WORLD),
-        checkpoint_fn: Callable[[int], None],
+        checkpoint_dir: str,
+        run_name: str,
         checkpoint_interval: int
 ) -> None:
 
@@ -199,4 +201,17 @@ def training_loop(
         ### maybe save checkpoint.
         if mod_check(t, num_env_steps_before_learning, checkpoint_interval):
             if comm.Get_rank() == ROOT_RANK:
-                checkpoint_fn(t+1)
+                save_checkpoint(
+                    checkpoint_dir=checkpoint_dir,
+                    run_name=run_name,
+                    steps=t+1,
+                    q_network=q_network,
+                    target_network=target_network,
+                    optimizer=optimizer,
+                    scheduler=scheduler)
+            save_replay_memory(
+                checkpoint_dir=checkpoint_dir,
+                run_name=run_name,
+                rank=comm.Get_rank(),
+                steps=t+1,
+                replay_memory=replay_memory)

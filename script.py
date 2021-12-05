@@ -14,7 +14,7 @@ from per.agents.dqn import QNetwork
 from per.algos.replay import PrioritizedReplayMemory
 from per.algos.q_learning import training_loop
 
-from per.utils.checkpoint_util import maybe_load_checkpoint, save_checkpoint
+from per.utils.checkpoint_util import maybe_load_checkpoint, maybe_load_replay_memory
 from per.utils.comm_util import get_comm, sync_state, ROOT_RANK
 from per.utils.atari_util import make_atari, wrap_deepmind
 
@@ -24,7 +24,7 @@ def create_argparser():
         description="Pytorch implementation of Prioritized Experience Replay")
 
     ### mode, environment, algo, architecture
-    parser.add_argument("--mode", choices=["train", "evaluate", "video"])
+    parser.add_argument("--mode", choices=["train", "evaluate", "video"], default='train')
     parser.add_argument("--env_name", type=str, default='PongNoFrameskip-v4')
     parser.add_argument("--double_dqn", choices=[0,1], default=1)
     parser.add_argument("--dueling_head", choices=[0,1], default=0)
@@ -181,17 +181,25 @@ def main():
             scheduler=scheduler,
             steps=None)
 
-    ### sync state.
-    num_env_steps_thus_far = comm.bcast(num_env_steps_thus_far, root=ROOT_RANK)
-    sync_state(
-        q_network=q_network,
-        target_network=target_network,
-        optimizer=optimizer,
-        scheduler=scheduler,
-        comm=comm,
-        root=ROOT_RANK)
-
     if args.mode == 'train':
+        ### sync state.
+        num_env_steps_thus_far = comm.bcast(num_env_steps_thus_far, root=ROOT_RANK)
+        sync_state(
+            q_network=q_network,
+            target_network=target_network,
+            optimizer=optimizer,
+            scheduler=scheduler,
+            comm=comm,
+            root=ROOT_RANK)
+
+        ### load replay memory on each process, if applicable.
+        replay_memory = maybe_load_replay_memory(
+            steps=num_env_steps_thus_far,
+            checkpoint_dir=args.checkpoint_dir,
+            run_name=args.run_name,
+            rank=comm.Get_rank(),
+            replay_memory=replay_memory)
+
         ### create annealing functions.
         alpha_annealing_fn = create_annealing_fn(
             initial_value=args.alpha_init,
@@ -211,16 +219,6 @@ def main():
             do_annealing=bool(args.epsilon_annealing),
             start_step=args.epsilon_annealing_start_step,
             end_step=args.epsilon_annealing_end_step)
-
-        ### create checkpointing callback.
-        checkpoint_fn = functools.partial(
-            save_checkpoint,
-            checkpoint_dir=args.checkpoint_dir,
-            run_name=args.run_name,
-            q_network=q_network,
-            target_network=target_network,
-            optimizer=optimizer,
-            scheduler=scheduler)
 
         ### run it!
         training_loop(
@@ -244,7 +242,8 @@ def main():
             double_dqn=bool(args.double_dqn),
             huber_loss=bool(args.huber_loss),
             comm=comm,
-            checkpoint_fn=checkpoint_fn,
+            checkpoint_dir=args.checkpoint_dir,
+            run_name=args.run_name,
             checkpoint_interval=args.checkpoint_interval)
 
     elif args.mode == 'video':
