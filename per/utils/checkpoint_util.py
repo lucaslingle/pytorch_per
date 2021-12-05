@@ -7,6 +7,8 @@ import pickle
 
 import torch as tc
 
+from per.utils.comm_util import ROOT_RANK
+
 
 def _format_name(kind, steps):
     filename = f"{kind}_{steps}.pth"
@@ -269,6 +271,7 @@ def maybe_load_replay_memory(
             steps=steps)
         return replay_memory
     except FileNotFoundError:
-        print(f"Bad checkpoint or none at {base_path} with step {steps}.")
-        print("Running from scratch.")
+        if rank == ROOT_RANK:
+            print(f"Bad checkpoint or none at {base_path} with step {steps}.")
+            print("Running from scratch.")
         return replay_memory
