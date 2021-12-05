@@ -42,7 +42,7 @@ def _serialize_and_save_state_dict(
         checkpointable
 ):
     """
-    Saves a checkpoint of the latest model, optimizer, scheduler state.
+    Saves a checkpoint of a checkpointable.
     Also tidies up checkpoint_dir/run_name/ by keeping only last 5 ckpts.
 
     Args:
@@ -68,23 +68,21 @@ def _serialize_and_save_state_dict(
             os.remove(os.path.join(base_path, fname))
 
 
-def _maybe_deserialize_and_load_state_dict(
+def _deserialize_and_load_state_dict(
         steps,
         base_path,
         kind_name,
         checkpointable
 ):
     """
-    Tries to load a checkpoint from checkpoint_dir/model_name/.
-    If there isn't one, it fails gracefully, allowing the script to proceed
-    from a newly initialized model.
+    Loads a checkpoint of a checkpointable.
 
     Args:
         steps: step number for the checkpoint to locate.
         base_path: base path for checkpointing.
-        kind_name: kind name of torch module being checkpointed
+        kind_name: kind name of torch module being loaded
             (e.g., qnetwork, optimizer, etc.).
-        checkpointable: torch module/optimizer/scheduler to save checkpoint for.
+        checkpointable: torch module/optimizer/scheduler to load checkpoint for.
 
     Returns:
         number of env steps experienced by loaded checkpoint.
@@ -106,12 +104,12 @@ def save_checkpoint(
         scheduler
 ):
     """
-    Saves a checkpoint of the latest model, optimizer, scheduler state.
-    Also tidies up checkpoint_dir/run_name/ by keeping only last 5 ckpts of each type.
+    Saves a checkpoint to checkpoint_dir/run_name/.
 
     Args:
         steps: step number for the checkpoint to save.
-        base_path: base path for checkpointing.
+        checkpoint_dir: checkpoint dir for checkpointing.
+        run_name: run name for checkpointing.
         q_network: q-network.
         target_network: target network.
         optimizer: optimizer.
@@ -143,7 +141,7 @@ def maybe_load_checkpoint(
         steps=None
 ):
     """
-    Tries to load a checkpoint from checkpoint_dir/model_name/.
+    Tries to load a checkpoint from checkpoint_dir/run_name/.
     If there isn't one, it fails gracefully, allowing the script to proceed
     from a newly initialized model.
 
@@ -165,7 +163,7 @@ def maybe_load_checkpoint(
     steps_list = []
     try:
         for kind_name, checkpointable in zip(kind_names, checkpointables):
-            _steps = _maybe_deserialize_and_load_state_dict(
+            _steps = _deserialize_and_load_state_dict(
                 steps=steps,
                 base_path=base_path,
                 kind_name=kind_name,
