@@ -47,9 +47,9 @@ def _clean(base_path, kind, n=5):
 
 
 def _serialize_and_save_state_dict(
-        steps,
         base_path,
         kind_name,
+        steps,
         checkpointable,
         n=5
 ):
@@ -140,10 +140,10 @@ def _deserialize_and_load_pickleable_state(
     Loads a checkpoint of a pickleable python object.
 
     Args:
-        steps: step number for the checkpoint to load. if none, uses latest.
         base_path: base path for checkpointing.
         kind_name: kind name of torch module being loaded
             (e.g., 'replay_memory').
+        steps: step number for the checkpoint to load. if none, uses latest.
 
     Returns:
         number of env steps experienced by loaded checkpoint.
@@ -215,11 +215,11 @@ def maybe_load_checkpoint(
     Args:
         checkpoint_dir: checkpoint dir for checkpointing.
         run_name: run name for checkpointing.
+        steps: step number for checkpoint to load. if none, uses latest.
         q_network: q-network.
         target_network: target network.
         optimizer: optimizer.
         scheduler: optional learning rate scheduler.
-        steps: optional step number. if none, uses latest.
 
     Returns:
         step number of the recovered checkpoints, else 0.
@@ -277,7 +277,6 @@ def maybe_load_replay_memory(
         replay_memory
 ):
     base_path = os.path.join(checkpoint_dir, run_name)
-
     try:
         replay_memory = _deserialize_and_load_pickleable_state(
             base_path=base_path,
