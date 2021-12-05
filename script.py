@@ -56,8 +56,8 @@ def create_argparser():
     ### checkpointing
     parser.add_argument("--checkpoint_dir", type=str, default='checkpoints/')
     parser.add_argument("--run_name", type=str, default='default_hparams')
-    parser.add_argument("--checkpoint_interval", type=int, default=2e4)
-    parser.add_argument("--replay_checkpointing", choices=[0,1], default=1) # 0)
+    parser.add_argument("--checkpoint_interval", type=int, default=1e3)
+    parser.add_argument("--replay_checkpointing", choices=[0,1], default=1)
     return parser
 
 
