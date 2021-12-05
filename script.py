@@ -165,7 +165,7 @@ def main():
     scheduler = create_scheduler()
 
     replay_memory = create_replay_memory(
-        replay_memory_size=args.replay_memory_size // comm.Get_size(),
+        replay_memory_size=args.replay_memory_size,
         alpha_init=args.alpha_init,
         beta_init=args.beta_init)
 
