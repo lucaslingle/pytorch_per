@@ -3,8 +3,6 @@ Script to operate DQN agents trained with Prioritized Experience Replay.
 """
 
 import argparse
-import time
-import functools
 
 import torch as tc
 

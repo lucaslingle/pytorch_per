@@ -3,7 +3,6 @@ Utility module for saving and loading checkpoints.
 """
 
 import os
-import time
 import pickle
 
 import torch as tc
