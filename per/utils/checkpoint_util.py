@@ -163,6 +163,7 @@ def maybe_load_checkpoint(
     except FileNotFoundError:
         print(f"Bad checkpoint or none at {base_path} with step {steps}.")
         print("Running from scratch.")
+        return
 
     print(f"Loaded checkpoint from {base_path}, with step {steps}.")
     print("Continuing from checkpoint.")
