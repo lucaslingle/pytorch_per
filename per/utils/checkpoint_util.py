@@ -181,7 +181,6 @@ def save_checkpoint(
         scheduler: optional learning rate scheduler.
         n: int number of past checkpoints to keep
 
-
     Returns:
         None
     """
