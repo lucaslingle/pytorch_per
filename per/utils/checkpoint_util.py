@@ -147,8 +147,8 @@ def maybe_load_checkpoint(
     checkpointables = [c for c in checkpointables if c is not None]
     base_path = os.path.join(checkpoint_dir, run_name)
 
+    steps_list = []
     try:
-        steps_list = []
         for kind_name, checkpointable in zip(kind_names, checkpointables):
             _steps = _maybe_deserialize_and_load_state_dict(
                 steps=steps,
@@ -156,17 +156,18 @@ def maybe_load_checkpoint(
                 kind_name=kind_name,
                 checkpointable=checkpointable)
             steps_list.append(_steps)
-        if len(set(steps_list)) != 1:
-            msg = "Iterates not aligned in latest checkpoints!\n" + \
-                "Delete the offending file(s) and try again."
-            raise ValueError(msg)
     except FileNotFoundError:
         print(f"Bad checkpoint or none at {base_path} with step {steps}.")
         print("Running from scratch.")
         return
 
-    print(f"Loaded checkpoint from {base_path}, with step {steps}.")
-    print("Continuing from checkpoint.")
+    if len(set(steps_list)) != 1:
+        msg = "Iterates not aligned in latest checkpoints!\n" + \
+              "Delete the offending file(s) and try again."
+        raise ValueError(msg)
+    else:
+        print(f"Loaded checkpoint from {base_path}, with step {steps}.")
+        print("Continuing from checkpoint.")
 
 
 # TODO(lucaslingle):
