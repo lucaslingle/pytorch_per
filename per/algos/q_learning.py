@@ -190,7 +190,9 @@ def training_loop(
                     scheduler.step()
 
                 if comm.Get_rank() == ROOT_RANK:
-                    print(f"timestep: {t}... loss: {loss}")
+                    loss_sum = comm.allreduce(loss)
+                    loss_mean = loss_sum / comm.Get_size()
+                    print(f"timestep: {t}... loss: {loss_mean}")
 
         ### maybe save checkpoint.
         if mod_check(t, num_env_steps_before_learning, checkpoint_interval):
