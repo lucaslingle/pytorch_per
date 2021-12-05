@@ -57,6 +57,7 @@ def create_argparser():
     parser.add_argument("--checkpoint_dir", type=str, default='checkpoints/')
     parser.add_argument("--run_name", type=str, default='default_hparams')
     parser.add_argument("--checkpoint_interval", type=int, default=1e3)
+    parser.add_argument("--replay_checkpointing", choices=[0,1], default=0)
     return parser
 
 
@@ -191,12 +192,13 @@ def main():
             root=ROOT_RANK)
 
         ### load replay memory on each process, if applicable.
-        replay_memory = maybe_load_replay_memory(
-            steps=num_env_steps_thus_far,
-            checkpoint_dir=args.checkpoint_dir,
-            run_name=args.run_name,
-            rank=comm.Get_rank(),
-            replay_memory=replay_memory)
+        if bool(args.replay_checkpointing):
+            replay_memory = maybe_load_replay_memory(
+                steps=num_env_steps_thus_far,
+                checkpoint_dir=args.checkpoint_dir,
+                run_name=args.run_name,
+                rank=comm.Get_rank(),
+                replay_memory=replay_memory)
 
         ### create annealing functions.
         alpha_annealing_fn = create_annealing_fn(
@@ -242,7 +244,8 @@ def main():
             comm=comm,
             checkpoint_dir=args.checkpoint_dir,
             run_name=args.run_name,
-            checkpoint_interval=args.checkpoint_interval)
+            checkpoint_interval=args.checkpoint_interval,
+            replay_checkpointing=bool(args.replay_checkpointing))
 
     elif args.mode == 'video':
         ### temporary code replace with video saving functionality later

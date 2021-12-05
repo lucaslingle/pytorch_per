@@ -133,7 +133,8 @@ def training_loop(
         comm: type(MPI.COMM_WORLD),
         checkpoint_dir: str,
         run_name: str,
-        checkpoint_interval: int
+        checkpoint_interval: int,
+        replay_checkpointing: bool
 ) -> None:
 
     if num_env_steps_thus_far == 0:
@@ -209,9 +210,10 @@ def training_loop(
                     target_network=target_network,
                     optimizer=optimizer,
                     scheduler=scheduler)
-            save_replay_memory(
-                checkpoint_dir=checkpoint_dir,
-                run_name=run_name,
-                rank=comm.Get_rank(),
-                steps=t+1,
-                replay_memory=replay_memory)
+            if replay_checkpointing:
+                save_replay_memory(
+                    checkpoint_dir=checkpoint_dir,
+                    run_name=run_name,
+                    rank=comm.Get_rank(),
+                    steps=t+1,
+                    replay_memory=replay_memory)
