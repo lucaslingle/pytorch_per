@@ -203,7 +203,7 @@ def main():
         ### create annealing functions.
         alpha_annealing_fn = create_annealing_fn(
             initial_value=args.alpha_init,
-             final_value=0.0,
+            final_value=0.0,
             do_annealing=bool(args.alpha_annealing),
             start_step=args.alpha_annealing_start_step,
             end_step=args.max_env_steps_per_process)
