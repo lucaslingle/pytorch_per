@@ -15,8 +15,7 @@ from per.algos.replay import PrioritizedReplayMemory
 from per.algos.q_learning import training_loop
 
 from per.utils.checkpoint_util import maybe_load_checkpoint, save_checkpoint
-from per.utils.comm_util import get_comm, sync_state
-from per.utils.constants import ROOT_RANK
+from per.utils.comm_util import get_comm, sync_state, ROOT_RANK
 from per.utils.atari_util import make_atari, wrap_deepmind
 
 

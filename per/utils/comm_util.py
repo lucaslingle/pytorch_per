@@ -6,6 +6,8 @@ from mpi4py import MPI
 import torch as tc
 import numpy as np
 
+ROOT_RANK = 0
+
 
 def get_comm():
     comm = MPI.COMM_WORLD

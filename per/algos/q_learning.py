@@ -7,7 +7,7 @@ from mpi4py import MPI
 
 from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
-from per.utils.comm_util import sync_grads
+from per.utils.comm_util import sync_grads, ROOT_RANK
 
 
 def mod_check(
@@ -94,7 +94,7 @@ def compute_qvalues_and_targets(
     return q_t, y_t
 
 
-def compute_losses(
+def compute_loss(
         inputs: tc.Tensor,
         targets: tc.Tensor,
         weights: tc.Tensor,
@@ -141,7 +141,6 @@ def training_loop(
     o_t = env.reset()
 
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
-        print(t)
         ### maybe update target network.
         if mod_check(t, num_env_steps_before_learning, target_update_interval):
             update_target_network(
@@ -178,18 +177,22 @@ def training_loop(
                     td_errs=list(deltas.detach().numpy()))
 
                 ws = tc.FloatTensor(samples['weights'])
-                mb_loss = compute_losses(
+                loss = compute_loss(
                     inputs=qs,
                     targets=ys,
                     weights=ws,
                     huber_loss=huber_loss)
                 optimizer.zero_grad()
-                mb_loss.backward()
+                loss.backward()
                 sync_grads(model=q_network, comm=comm)
                 optimizer.step()
                 if scheduler:
                     scheduler.step()
 
+                if comm.Get_rank() == ROOT_RANK:
+                    print(f"timestep: {t}... loss: {loss}")
+
         ### maybe save checkpoint.
         if mod_check(t, num_env_steps_before_learning, checkpoint_interval):
-            checkpoint_fn(t+1)
+            if comm.Get_rank() == ROOT_RANK:
+                checkpoint_fn(t+1)
