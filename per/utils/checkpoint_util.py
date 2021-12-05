@@ -4,6 +4,7 @@ Utility module for saving and loading checkpoints.
 
 import os
 import pickle
+import zlib
 
 import torch as tc
 
@@ -49,7 +50,8 @@ def _serialize_and_save_state_dict(
         steps,
         base_path,
         kind_name,
-        checkpointable
+        checkpointable,
+        n=5
 ):
     """
     Saves a checkpoint of a checkpointable.
@@ -61,6 +63,7 @@ def _serialize_and_save_state_dict(
             (e.g., qnetwork, optimizer, etc.).
         steps: num steps for the checkpoint to save.
         checkpointable: torch module/optimizer/scheduler to save checkpoint for.
+        n: int past number of checkpoints to keep.
 
     Returns:
         None
@@ -68,7 +71,7 @@ def _serialize_and_save_state_dict(
     os.makedirs(base_path, exist_ok=True)
     path = os.path.join(base_path, _format_name(kind_name, steps))
     tc.save(checkpointable.state_dict(), path)
-    _clean(base_path, kind_name, n=5)
+    _clean(base_path, kind_name, n=n)
 
 
 def _deserialize_and_load_state_dict(
@@ -101,7 +104,8 @@ def _serialize_and_save_pickleable_state(
         base_path,
         kind_name,
         steps,
-        pickleable
+        pickleable,
+        n=5
 ):
     """
     Saves a checkpoint of a pickleable python object.
@@ -113,15 +117,18 @@ def _serialize_and_save_pickleable_state(
             (e.g., 'replay_memory')
         steps: num steps for the checkpoint to save.
         pickleable: pickleable python object to persist.
+        n: int number of past checkpoints to keep.
 
     Returns:
         None
     """
     os.makedirs(base_path, exist_ok=True)
     path = os.path.join(base_path, _format_name(kind_name, steps))
+    b = pickle.dumps(pickleable)
+    c = zlib.compress(b, level=6)
     with open(path, 'wb+') as f:
-        pickle.dump(pickleable, f)
-    _clean(base_path, kind_name, n=5)
+        f.write(c)
+    _clean(base_path, kind_name, n=n)
 
 
 def _deserialize_and_load_pickleable_state(
@@ -145,7 +152,9 @@ def _deserialize_and_load_pickleable_state(
         steps = _latest_step(base_path, kind_name)
     path = os.path.join(base_path, _format_name(kind_name, steps))
     with open(path, 'rb+') as f:
-        pickleable = pickle.load(f)
+        c = f.read()
+    b = zlib.decompress(c)
+    pickleable = pickle.loads(b)
     return pickleable
 
 
@@ -157,6 +166,7 @@ def save_checkpoint(
         target_network,
         optimizer,
         scheduler,
+        n=5
 ):
     """
     Saves a checkpoint to checkpoint_dir/run_name/.
@@ -169,6 +179,8 @@ def save_checkpoint(
         target_network: target network.
         optimizer: optimizer.
         scheduler: optional learning rate scheduler.
+        n: int number of past checkpoints to keep
+
 
     Returns:
         None
@@ -183,7 +195,8 @@ def save_checkpoint(
             steps=steps,
             base_path=base_path,
             kind_name=kind_name,
-            checkpointable=checkpointable)
+            checkpointable=checkpointable,
+            n=n)
 
 
 def maybe_load_checkpoint(
@@ -245,14 +258,16 @@ def save_replay_memory(
         run_name,
         rank,
         steps,
-        replay_memory
+        replay_memory,
+        n=1
 ):
     base_path = os.path.join(checkpoint_dir, run_name)
     _serialize_and_save_pickleable_state(
         base_path=base_path,
         kind_name=f"replay_memory_{rank}",
         steps=steps,
-        pickleable=replay_memory)
+        pickleable=replay_memory,
+        n=n)
 
 
 def maybe_load_replay_memory(

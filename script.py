@@ -56,8 +56,8 @@ def create_argparser():
     ### checkpointing
     parser.add_argument("--checkpoint_dir", type=str, default='checkpoints/')
     parser.add_argument("--run_name", type=str, default='default_hparams')
-    parser.add_argument("--checkpoint_interval", type=int, default=1e3)
-    parser.add_argument("--replay_checkpointing", choices=[0,1], default=0)
+    parser.add_argument("--checkpoint_interval", type=int, default=2e4)
+    parser.add_argument("--replay_checkpointing", choices=[0,1], default=1) # 0)
     return parser
 
 
@@ -191,7 +191,7 @@ def main():
             comm=comm,
             root=ROOT_RANK)
 
-        ### load replay memory on each process, if applicable.
+        ### maybe load replay memory on each process.
         if bool(args.replay_checkpointing):
             replay_memory = maybe_load_replay_memory(
                 steps=num_env_steps_thus_far,
