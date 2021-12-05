@@ -244,11 +244,11 @@ def maybe_load_checkpoint(
                   "Delete the offending file(s) and try again."
             raise ValueError(msg)
     except FileNotFoundError:
-        print(f"Bad checkpoint or none at {base_path} with step {steps}.")
+        print(f"Bad torch checkpoint or none at {base_path} with step {steps}.")
         print("Running from scratch.")
         return 0
     else:
-        print(f"Loaded checkpoint from {base_path}, with step {_steps}.")
+        print(f"Loaded torch checkpoint from {base_path}, with step {_steps}.")
         print("Continuing from checkpoint.")
         return _steps
 
@@ -287,6 +287,6 @@ def maybe_load_replay_memory(
         return replay_memory
     except FileNotFoundError:
         if rank == ROOT_RANK:
-            print(f"Bad checkpoint or none at {base_path} with step {steps}.")
+            print(f"Bad replay checkpoint or none at {base_path} with step {steps}.")
             print("Running from scratch.")
         return replay_memory
