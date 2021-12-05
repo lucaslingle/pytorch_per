@@ -3,6 +3,7 @@ Utility module for saving and loading checkpoints.
 """
 
 import os
+import time
 
 import torch as tc
 
@@ -21,15 +22,78 @@ def _parse_name(filename):
     }
 
 
-def _latest_n_checkpoint_steps(base_path, n=5):
-    steps = set(map(lambda x: _parse_name(x)['steps'], os.listdir(base_path)))
+def _latest_n_checkpoint_steps(base_path, n=5, kind=''):
+    ls = os.listdir(base_path)
+    fgrep = [f for f in ls if _parse_name(f)['kind'].startswith(kind)]
+    steps = set(map(lambda f: _parse_name(f)['steps'], fgrep))
     latest_steps = sorted(steps)
     latest_n = latest_steps[-n:]
     return latest_n
 
 
-def _latest_step(base_path):
-    return _latest_n_checkpoint_steps(base_path, n=1)[-1]
+def _latest_step(base_path, kind=''):
+    return _latest_n_checkpoint_steps(base_path, n=1, kind=kind)[-1]
+
+
+def _serialize_and_save_state_dict(
+        steps,
+        base_path,
+        kind_name,
+        checkpointable
+):
+    """
+    Saves a checkpoint of the latest model, optimizer, scheduler state.
+    Also tidies up checkpoint_dir/run_name/ by keeping only last 5 ckpts.
+
+    Args:
+        steps: num steps for the checkpoint to save.
+        base_path: base path for checkpointing.
+        kind_name: kind name of torch module being checkpointed
+            (e.g., qnetwork, optimizer, etc.).
+        checkpointable: torch module/optimizer/scheduler to save checkpoint for.
+
+    Returns:
+        None
+    """
+    os.makedirs(base_path, exist_ok=True)
+
+    path = os.path.join(base_path, _format_name(kind_name, steps))
+    tc.save(checkpointable.state_dict(), path)
+
+    # keep only last n checkpoints
+    latest_n_steps = _latest_n_checkpoint_steps(base_path, n=5, kind=kind_name)
+    for fname in os.listdir(base_path):
+        parsed = _parse_name(fname)
+        if parsed['kind'] == kind_name and parsed['steps'] not in latest_n_steps:
+            os.remove(os.path.join(base_path, fname))
+
+
+def _maybe_deserialize_and_load_state_dict(
+        base_path,
+        kind_name,
+        checkpointable,
+        steps
+):
+    """
+    Tries to load a checkpoint from checkpoint_dir/model_name/.
+    If there isn't one, it fails gracefully, allowing the script to proceed
+    from a newly initialized model.
+
+    Args:
+        base_path: base path for checkpointing.
+        kind_name: kind name of torch module being checkpointed
+            (e.g., qnetwork, optimizer, etc.).
+        checkpointable: torch module/optimizer/scheduler to save checkpoint for.
+        steps: num steps for the checkpoint to locate.
+
+    Returns:
+        number of env steps experienced by loaded checkpoint.
+    """
+    if steps is None:
+        steps = _latest_step(base_path, kind_name)
+    path = os.path.join(base_path, _format_name(kind_name, steps))
+    checkpointable.load_state_dict(tc.load(path))
+    return steps
 
 
 def save_checkpoint(
@@ -40,43 +104,18 @@ def save_checkpoint(
         target_network,
         optimizer,
         scheduler
-    ):
-    """
-    Saves a checkpoint of the latest model, optimizer, scheduler state.
-    Also tidies up checkpoint_dir/model_name/ by keeping only last 5 ckpts.
-
-    Args:
-        steps: num steps for the checkpoint to save.
-        checkpoint_dir: checkpoint dir for checkpointing.
-        run_name: run name for checkpointing.
-        q_network: q-network to be saved to checkpoint.
-        target_network: target network to be saved to checkpoint.
-        optimizer: optimizer to be saved to checkpoint.
-        scheduler: scheduler to be saved to checkpoint.
-
-    Returns:
-        None
-    """
+):
+    kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
+    checkpointables = [q_network, target_network, optimizer, scheduler]
+    checkpointables = [c for c in checkpointables if c is not None]
     base_path = os.path.join(checkpoint_dir, run_name)
-    os.makedirs(base_path, exist_ok=True)
 
-    qnetwork_path = os.path.join(base_path, _format_name('qnetwork', steps))
-    tnetwork_path = os.path.join(base_path, _format_name('tnetwork', steps))
-    optim_path = os.path.join(base_path, _format_name('optimizer', steps))
-    sched_path = os.path.join(base_path, _format_name('scheduler', steps))
-
-    # save everything
-    tc.save(q_network.state_dict(), qnetwork_path)
-    tc.save(target_network.state_dict(), tnetwork_path)
-    tc.save(optimizer.state_dict(), optim_path)
-    if scheduler is not None:
-        tc.save(scheduler.state_dict(), sched_path)
-
-    # keep only last n checkpoints
-    latest_n_steps = _latest_n_checkpoint_steps(base_path, n=5)
-    for file in os.listdir(base_path):
-        if _parse_name(file)['steps'] not in latest_n_steps:
-            os.remove(os.path.join(base_path, file))
+    for kind_name, checkpointable in zip(kind_names, checkpointables):
+        _serialize_and_save_state_dict(
+            steps=steps,
+            base_path=base_path,
+            kind_name=kind_name,
+            checkpointable=checkpointable)
 
 
 def maybe_load_checkpoint(
@@ -86,8 +125,8 @@ def maybe_load_checkpoint(
         target_network,
         optimizer,
         scheduler,
-        steps
-    ):
+        steps=None
+):
     """
     Tries to load a checkpoint from checkpoint_dir/model_name/.
     If there isn't one, it fails gracefully, allowing the script to proceed
@@ -96,36 +135,43 @@ def maybe_load_checkpoint(
     Args:
         checkpoint_dir: checkpoint dir for checkpointing.
         run_name: run name for checkpointing.
-        q_network: q-network to be updated from checkpoint.
-        target_network: target network to be updated from checkpoint.
-        optimizer: optimizer to be updated from checkpoint.
-        scheduler: scheduler to be updated from checkpoint.
-        steps: num steps for the checkpoint to locate. if none, use latest.
-
-    Returns:
-        number of env steps experienced by loaded checkpoint.
+        q_network: q-network.
+        target_network: target network.
+        optimizer: optimizer.
+        scheduler: optional learning rate scheduler.
+        steps: optional step number. if none, uses latest.
     """
+
+    kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
+    checkpointables = [q_network, target_network, optimizer, scheduler]
+    checkpointables = [c for c in checkpointables if c is not None]
     base_path = os.path.join(checkpoint_dir, run_name)
+
     try:
-        if steps is None:
-            steps = _latest_step(base_path)
-
-        qnetwork_path = os.path.join(base_path, _format_name('qnetwork', steps))
-        tnetwork_path = os.path.join(base_path, _format_name('tnetwork', steps))
-        optim_path = os.path.join(base_path, _format_name('optimizer', steps))
-        sched_path = os.path.join(base_path, _format_name('scheduler', steps))
-
-        q_network.load_state_dict(tc.load(qnetwork_path))
-        target_network.load_state_dict(tc.load(tnetwork_path))
-        optimizer.load_state_dict(tc.load(optim_path))
-        if scheduler is not None:
-            scheduler.load_state_dict(tc.load(sched_path))
-
-        print(f"Loaded checkpoint from {base_path}, with step {steps}.")
-        print("Continuing from checkpoint.")
+        steps_list = []
+        for kind_name, checkpointable in zip(kind_names, checkpointables):
+            _steps = _maybe_deserialize_and_load_state_dict(
+                steps=steps,
+                base_path=base_path,
+                kind_name=kind_name,
+                checkpointable=checkpointable)
+            steps_list.append(_steps)
+        if len(set(steps_list)) != 1:
+            msg = "Iterates not aligned in latest checkpoints!\n" + \
+                "Delete the offending file(s) and try again."
+            raise RuntimeError(msg)
     except FileNotFoundError:
         print(f"Bad checkpoint or none at {base_path} with step {steps}.")
         print("Running from scratch.")
-        steps = 0
 
-    return steps
+    print(f"Loaded checkpoint from {base_path}, with step {steps}.")
+    print("Continuing from checkpoint.")
+
+
+# TODO(lucaslingle):
+#  1. create functions
+#      _serialize_and_save_replay_memory and
+#      _deserialize_and_load_replay_memory
+#  2. update save_checkpoint and maybe_load_checkpoint to take replay_memory as an arg, and
+#      to use these functions. The return type on maybe_load_checkpoint should be a dict with keys
+#      'latest_step', 'q_network', 'target_network', 'optimizer', 'scheduler', and 'replay_memory'.

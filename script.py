@@ -180,7 +180,6 @@ def main():
             optimizer=optimizer,
             scheduler=scheduler,
             steps=None)
-        time.sleep(5)
 
     ### sync state.
     num_env_steps_thus_far = comm.bcast(num_env_steps_thus_far, root=ROOT_RANK)
