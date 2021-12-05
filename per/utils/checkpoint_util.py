@@ -78,7 +78,7 @@ def _deserialize_and_load_state_dict(
     Loads a checkpoint of a checkpointable.
 
     Args:
-        steps: step number for the checkpoint to locate.
+        steps: step number for the checkpoint to load. if none, uses latest.
         base_path: base path for checkpointing.
         kind_name: kind name of torch module being loaded
             (e.g., qnetwork, optimizer, etc.).
