@@ -60,7 +60,7 @@ def _serialize_and_save_state_dict(
     Args:
         base_path: base path for checkpointing.
         kind_name: kind name of torch module being checkpointed
-            (e.g., qnetwork, optimizer, etc.).
+            (e.g., q_network, optimizer, etc.).
         steps: num steps for the checkpoint to save.
         checkpointable: torch module/optimizer/scheduler to save checkpoint for.
         n: int past number of checkpoints to keep.
@@ -113,7 +113,7 @@ def _serialize_and_save_pickleable_state(
 
     Args:
         base_path: base path for checkpointing.
-        kind_name: kind name of python object being checkpointed
+        kind_name: kind name of python object being pickled
             (e.g., 'replay_memory')
         steps: num steps for the checkpoint to save.
         pickleable: pickleable python object to persist.
@@ -141,7 +141,7 @@ def _deserialize_and_load_pickleable_state(
 
     Args:
         base_path: base path for checkpointing.
-        kind_name: kind name of torch module being loaded
+        kind_name: kind name of python object being pickled
             (e.g., 'replay_memory').
         steps: step number for the checkpoint to load. if none, uses latest.
 
