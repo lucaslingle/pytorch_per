@@ -27,13 +27,13 @@ def create_argparser():
     ### mode, environment, algo, architecture
     parser.add_argument("--mode", choices=["train", "evaluate", "video"], default='train')
     parser.add_argument("--env_name", type=str, default='PongNoFrameskip-v4')
-    parser.add_argument("--double_dqn", choices=[0,1], default=1)
-    parser.add_argument("--dueling_head", choices=[0,1], default=0)
+    parser.add_argument("--double_dqn", type=int, choices=[0,1], default=1)
+    parser.add_argument("--dueling_head", type=int, choices=[0,1], default=0)
 
     ### training hparams
     parser.add_argument("--optimizer_name", choices=['rmsprop', 'adam', 'sgd'], default='rmsprop')
     parser.add_argument("--learning_rate", type=float, default=6.25e-5)
-    parser.add_argument("--huber_loss", choices=[0,1], default=1)
+    parser.add_argument("--huber_loss", type=int, choices=[0,1], default=1)
     parser.add_argument("--target_update_interval", type=int, default=1e4)
     parser.add_argument("--max_env_steps_per_process", type=int, default=50e6)
     parser.add_argument("--num_env_steps_per_policy_update", type=int, default=4)
@@ -43,7 +43,7 @@ def create_argparser():
     parser.add_argument("--discount_gamma", type=float, default=0.99)
     parser.add_argument("--epsilon_init", type=float, default=1.0)
     parser.add_argument("--epsilon_final", type=float, default=0.1)
-    parser.add_argument("--epsilon_annealing", choices=[0,1], default=1)
+    parser.add_argument("--epsilon_annealing", type=int, choices=[0,1], default=1)
     parser.add_argument("--epsilon_annealing_start_step", type=int, default=0)
     parser.add_argument("--epsilon_annealing_end_step", type=int, default=1e6)
 
@@ -51,8 +51,8 @@ def create_argparser():
     parser.add_argument("--replay_memory_size", type=int, default=1e6)
     parser.add_argument("--alpha_init", type=float, default=0.6)
     parser.add_argument("--beta_init", type=float, default=0.4)
-    parser.add_argument("--alpha_annealing", choices=[0,1], default=0)
-    parser.add_argument("--beta_annealing", choices=[0,1], default=1)
+    parser.add_argument("--alpha_annealing", type=int, choices=[0,1], default=0)
+    parser.add_argument("--beta_annealing", type=int, choices=[0,1], default=1)
     parser.add_argument("--alpha_annealing_start_step", type=int, default=0)
     parser.add_argument("--beta_annealing_start_step", type=int, default=0)
 
@@ -60,8 +60,8 @@ def create_argparser():
     parser.add_argument("--checkpoint_dir", type=str, default='models_dir/')
     parser.add_argument("--run_name", type=str, default='default_hparams')
     parser.add_argument("--checkpoint_interval", type=int, default=1e4)
-    parser.add_argument("--replay_checkpointing", choices=[0,1], default=1)
-    parser.add_argument("--auto_load_config", choices=[0,1], default=1)
+    parser.add_argument("--replay_checkpointing", type=int, choices=[0,1], default=1)
+    parser.add_argument("--auto_load_config", type=int, choices=[0,1], default=1)
     return parser
 
 
