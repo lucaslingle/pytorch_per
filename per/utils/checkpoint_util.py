@@ -11,8 +11,8 @@ import torch as tc
 from per.utils.comm_util import ROOT_RANK
 
 
-def _format_name(kind, steps):
-    filename = f"{kind}_{steps}.pth"
+def _format_name(kind, steps, suffix):
+    filename = f"{kind}_{steps}.{suffix}"
     return filename
 
 
@@ -55,7 +55,7 @@ def _serialize_and_save_state_dict(
 ):
     """
     Saves a checkpoint of a checkpointable.
-    Also tidies up checkpoint_dir/run_name/ by keeping only last 5 ckpts.
+    Also tidies up base_path by keeping only last 5 ckpts.
 
     Args:
         base_path: base path for checkpointing.
@@ -69,7 +69,7 @@ def _serialize_and_save_state_dict(
         None
     """
     os.makedirs(base_path, exist_ok=True)
-    path = os.path.join(base_path, _format_name(kind_name, steps))
+    path = os.path.join(base_path, _format_name(kind_name, steps, 'pth'))
     tc.save(checkpointable.state_dict(), path)
     _clean(base_path, kind_name, n=n)
 
@@ -95,7 +95,7 @@ def _deserialize_and_load_state_dict(
     """
     if steps is None:
         steps = _latest_step(base_path, kind_name)
-    path = os.path.join(base_path, _format_name(kind_name, steps))
+    path = os.path.join(base_path, _format_name(kind_name, steps, 'pth'))
     checkpointable.load_state_dict(tc.load(path))
     return steps
 
@@ -109,7 +109,7 @@ def _serialize_and_save_pickleable_state(
 ):
     """
     Saves a checkpoint of a pickleable python object.
-    Also tidies up checkpoint_dir/run_name/ by keeping only last 5 ckpts.
+    Also tidies up base_path by keeping only last 5 ckpts.
 
     Args:
         base_path: base path for checkpointing.
@@ -123,7 +123,7 @@ def _serialize_and_save_pickleable_state(
         None
     """
     os.makedirs(base_path, exist_ok=True)
-    path = os.path.join(base_path, _format_name(kind_name, steps))
+    path = os.path.join(base_path, _format_name(kind_name, steps, 'pkl'))
     b = pickle.dumps(pickleable)
     c = zlib.compress(b, level=6)
     with open(path, 'wb+') as f:
@@ -150,7 +150,7 @@ def _deserialize_and_load_pickleable_state(
     """
     if steps is None:
         steps = _latest_step(base_path, kind_name)
-    path = os.path.join(base_path, _format_name(kind_name, steps))
+    path = os.path.join(base_path, _format_name(kind_name, steps, 'pkl'))
     with open(path, 'rb+') as f:
         c = f.read()
     b = zlib.decompress(c)
@@ -169,7 +169,7 @@ def save_checkpoint(
         n=5
 ):
     """
-    Saves a checkpoint to checkpoint_dir/run_name/.
+    Saves a checkpoint to checkpoint_dir/run_name/checkpoints/.
 
     Args:
         checkpoint_dir: checkpoint dir for checkpointing.
@@ -187,7 +187,7 @@ def save_checkpoint(
     kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
     checkpointables = [q_network, target_network, optimizer, scheduler]
     checkpointables = [c for c in checkpointables if c is not None]
-    base_path = os.path.join(checkpoint_dir, run_name)
+    base_path = os.path.join(checkpoint_dir, run_name, 'checkpoints')
 
     for kind_name, checkpointable in zip(kind_names, checkpointables):
         _serialize_and_save_state_dict(
@@ -208,7 +208,7 @@ def maybe_load_checkpoint(
         scheduler,
 ):
     """
-    Tries to load a checkpoint from checkpoint_dir/run_name/.
+    Tries to load a checkpoint from checkpoint_dir/run_name/checkpoints/.
     If there isn't one, it fails gracefully, allowing the script to proceed
     from a newly initialized model.
 
@@ -227,7 +227,7 @@ def maybe_load_checkpoint(
     kind_names = ['q_network', 'target_network', 'optimizer', 'scheduler']
     checkpointables = [q_network, target_network, optimizer, scheduler]
     checkpointables = [c for c in checkpointables if c is not None]
-    base_path = os.path.join(checkpoint_dir, run_name)
+    base_path = os.path.join(checkpoint_dir, run_name, 'checkpoints')
 
     step_list = []
     try:
@@ -260,7 +260,7 @@ def save_replay_memory(
         replay_memory,
         n=1
 ):
-    base_path = os.path.join(checkpoint_dir, run_name)
+    base_path = os.path.join(checkpoint_dir, run_name, 'pickles')
     _serialize_and_save_pickleable_state(
         base_path=base_path,
         kind_name=f"replay_memory_{rank}",
@@ -276,12 +276,14 @@ def maybe_load_replay_memory(
         steps,
         replay_memory
 ):
-    base_path = os.path.join(checkpoint_dir, run_name)
+    base_path = os.path.join(checkpoint_dir, run_name, 'pickles')
     try:
         replay_memory = _deserialize_and_load_pickleable_state(
             base_path=base_path,
             kind_name=f"replay_memory_{rank}",
             steps=steps)
+        print(f"Loaded replay checkpoint from {base_path}, with step {steps}.")
+        print("Continuing from checkpoint.")
         return replay_memory
     except FileNotFoundError:
         if rank == ROOT_RANK:

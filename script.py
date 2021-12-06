@@ -15,6 +15,7 @@ from per.algos.q_learning import training_loop
 from per.utils.checkpoint_util import maybe_load_checkpoint, maybe_load_replay_memory
 from per.utils.comm_util import get_comm, sync_state, ROOT_RANK
 from per.utils.atari_util import make_atari, wrap_deepmind
+from per.utils.video_util import save_video
 
 
 def create_argparser():
@@ -54,7 +55,7 @@ def create_argparser():
     parser.add_argument("--beta_annealing_start_step", type=int, default=0)
 
     ### checkpointing
-    parser.add_argument("--checkpoint_dir", type=str, default='checkpoints/')
+    parser.add_argument("--checkpoint_dir", type=str, default='models_dir/')
     parser.add_argument("--run_name", type=str, default='default_hparams')
     parser.add_argument("--checkpoint_interval", type=int, default=1e3)
     parser.add_argument("--replay_checkpointing", choices=[0,1], default=1)
@@ -248,23 +249,12 @@ def main():
             replay_checkpointing=bool(args.replay_checkpointing))
 
     elif args.mode == 'video':
-        ### temporary code replace with video saving functionality later
         if comm.Get_rank() == ROOT_RANK:
-            with tc.no_grad():
-                done_t = False
-                o_t = env.reset()
-                r_total = 0.
-                while not done_t:
-                    a_t = q_network.sample(
-                        x=tc.FloatTensor(o_t).unsqueeze(0),
-                        epsilon=0.01)
-                    a_t = int(a_t.squeeze(0).detach().numpy())
-                    o_tp1, r_t, done_t, _ = env.step(action=a_t)
-                    _ = env.render()
-                    r_total += r_t
-                    o_t = o_tp1
-                print(r_total)
-
+            save_video(
+                checkpoint_dir=args.checkpoint_dir,
+                run_name=args.run_name,
+                q_network=q_network,
+                env=env)
     else:
         raise NotImplementedError
 
