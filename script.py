@@ -82,7 +82,7 @@ def maybe_load_config(args, comm):
             os.makedirs(base_path, exist_ok=True)
             with open(config_path, 'wb') as f:
                 pickle.dump(args, f)
-    args = comm.broadcast(args, root=ROOT_RANK)
+    args = comm.bcast(args, root=ROOT_RANK)
     return args
 
 
