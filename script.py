@@ -65,7 +65,7 @@ def create_argparser():
     return parser
 
 
-def maybe_load_config(args):
+def maybe_load_config(args, comm):
     # picks up a project from where it left off,
     # without requiring all command line args to be specified again
     if not bool(args.auto_load_config):
@@ -73,16 +73,17 @@ def maybe_load_config(args):
     mode = args.mode
     base_path = os.path.join(args.checkpoint_dir, args.run_name)
     config_path = os.path.join(base_path, 'config')
-    if os.path.exists(config_path):
-        with open(config_path, 'rb') as f:
-            args = pickle.load(f)
-        args.mode = mode
-        return args
-    else:
-        os.makedirs(base_path, exist_ok=True)
-        with open(config_path, 'wb') as f:
-            pickle.dump(args, f)
-        return args
+    if comm.Get_rank() == ROOT_RANK:
+        if os.path.exists(config_path):
+            with open(config_path, 'rb') as f:
+                args = pickle.load(f)
+            args.mode = mode
+        else:
+            os.makedirs(base_path, exist_ok=True)
+            with open(config_path, 'wb') as f:
+                pickle.dump(args, f)
+    args = comm.broadcast(args, root=ROOT_RANK)
+    return args
 
 
 def create_env(env_name, mode):
