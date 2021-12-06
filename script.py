@@ -71,8 +71,8 @@ def maybe_load_config(args):
     if not bool(args.auto_load_config):
         return args
     mode = args.mode
-    base_path = os.path.join(args.checkpoint_dir, args.run_name, 'pickles')
-    config_path = os.path.join(base_path, 'config.pkl')
+    base_path = os.path.join(args.checkpoint_dir, args.run_name)
+    config_path = os.path.join(base_path, 'config')
     if os.path.exists(config_path):
         with open(config_path, 'rb') as f:
             args = pickle.load(f)
