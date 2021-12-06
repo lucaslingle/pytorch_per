@@ -164,9 +164,8 @@ def create_annealing_fn(
 
 
 def main():
-    args = create_argparser().parse_args()
-    args = maybe_load_config(args)
-    comm = get_comm()
+    args, comm = create_argparser().parse_args(), get_comm()
+    args = maybe_load_config(args, comm)
 
     ### create env.
     env = create_env(
