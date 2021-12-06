@@ -22,6 +22,8 @@ def _collect_footage(env, q_network, max_frames):
                 epsilon=0.01)
             a_t = int(a_t.squeeze(0).detach().numpy())
             o_tp1, r_t, done_t, _ = env.step(action=a_t)
+            if done_t:
+                o_tp1 = env.reset()
             frames.append(np.array(env.render(mode='rgb_array')))
             o_t = o_tp1
     return frames
