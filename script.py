@@ -3,6 +3,8 @@ Script to operate DQN agents trained with Prioritized Experience Replay.
 """
 
 import argparse
+import os
+import pickle
 
 import torch as tc
 
@@ -59,7 +61,28 @@ def create_argparser():
     parser.add_argument("--run_name", type=str, default='default_hparams')
     parser.add_argument("--checkpoint_interval", type=int, default=1e4)
     parser.add_argument("--replay_checkpointing", choices=[0,1], default=1)
+    parser.add_argument("--auto_load_config", choices=[0,1], default=1)
     return parser
+
+
+def maybe_load_config(args):
+    # picks up a project from where it left off,
+    # without requiring all command line args to be specified again
+    if not bool(args.auto_load_config):
+        return args
+    mode = args.mode
+    base_path = os.path.join(args.checkpoint_dir, args.run_name, 'pickles')
+    config_path = os.path.join(base_path, 'config.pkl')
+    if os.path.exists(config_path):
+        with open(config_path, 'rb+') as f:
+            args = pickle.load(f)
+        args.mode = mode
+        return args
+    else:
+        os.makedirs(base_path, exist_ok=True)
+        with open(config_path, 'wb+') as f:
+            pickle.dump(args, f)
+        return args
 
 
 def create_env(env_name, mode):
@@ -141,6 +164,7 @@ def create_annealing_fn(
 
 def main():
     args = create_argparser().parse_args()
+    args = maybe_load_config(args)
     comm = get_comm()
 
     ### create env.
