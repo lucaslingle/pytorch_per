@@ -193,7 +193,7 @@ def main():
         alpha_init=args.alpha_init,
         beta_init=args.beta_init)
 
-    ### load checkpoint, if applicable.
+    ### maybe load checkpoint on process with rank zero.
     num_env_steps_thus_far = 0
     if comm.Get_rank() == ROOT_RANK:
         num_env_steps_thus_far = maybe_load_checkpoint(
@@ -206,7 +206,7 @@ def main():
             steps=None)
 
     if args.mode == 'train':
-        ### sync state.
+        ### sync torch checkpointables' states across processes.
         num_env_steps_thus_far = comm.bcast(num_env_steps_thus_far, root=ROOT_RANK)
         sync_state(
             q_network=q_network,
