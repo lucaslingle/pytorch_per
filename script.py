@@ -74,13 +74,13 @@ def maybe_load_config(args):
     base_path = os.path.join(args.checkpoint_dir, args.run_name, 'pickles')
     config_path = os.path.join(base_path, 'config.pkl')
     if os.path.exists(config_path):
-        with open(config_path, 'rb+') as f:
+        with open(config_path, 'rb') as f:
             args = pickle.load(f)
         args.mode = mode
         return args
     else:
         os.makedirs(base_path, exist_ok=True)
-        with open(config_path, 'wb+') as f:
+        with open(config_path, 'wb') as f:
             pickle.dump(args, f)
         return args
 

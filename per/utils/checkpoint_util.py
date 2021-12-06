@@ -126,7 +126,7 @@ def _serialize_and_save_pickleable_state(
     path = os.path.join(base_path, _format_name(kind_name, steps, 'pkl'))
     b = pickle.dumps(pickleable)
     c = zlib.compress(b, level=6)
-    with open(path, 'wb+') as f:
+    with open(path, 'wb') as f:
         f.write(c)
     _clean(base_path, kind_name, n=n)
 
@@ -151,7 +151,7 @@ def _deserialize_and_load_pickleable_state(
     if steps is None:
         steps = _latest_step(base_path, kind_name)
     path = os.path.join(base_path, _format_name(kind_name, steps, 'pkl'))
-    with open(path, 'rb+') as f:
+    with open(path, 'rb') as f:
         c = f.read()
     b = zlib.decompress(c)
     pickleable = pickle.loads(b)
