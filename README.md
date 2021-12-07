@@ -57,6 +57,6 @@ When training different models, you should set unique run names using the
 Videos can be saved to the checkpoint directory for a given model by using the command line argument ```--mode=video```.
 
 ## Wall-Clock Time
-We currently support distributed data parallel training on CPUs using mpi4py directly. On a laptop with a ```2.3 GHz 8-Core Intel Core i9``` CPU, we obtained a throughput of about 150,000 frames per hour, meaning that training for 50M timesteps should take about 333 hours, or 13.9 days.
+We currently support distributed data parallel training on CPUs using mpi4py directly. On a laptop with a ```2.3 GHz 8-Core Intel Core i9``` CPU, we obtained a throughput of about 150,000 timesteps per hour, meaning that training for 50M timesteps (200M frames) should take about 333 hours, or 13.9 days.
 
 We are currently evaluating the throughput on an NVIDIA V100 GPU. 
