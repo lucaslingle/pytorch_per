@@ -145,9 +145,6 @@ def training_loop(
     o_t = env.reset()
 
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
-        global_t = t * comm.Get_size()
-        if verbose and comm.Get_rank() == ROOT_RANK:
-            print(global_t)
         ### maybe update target network.
         if mod_check(t, num_env_steps_before_learning, target_update_interval):
             update_target_network(
@@ -200,6 +197,7 @@ def training_loop(
                 loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
                 loss_mean = loss_sum / comm.Get_size()
                 if comm.Get_rank() == ROOT_RANK:
+                    global_t = t * comm.Get_size()
                     print(f"global timestep: {global_t}... loss: {loss_mean}")
 
         ### maybe save checkpoint.
