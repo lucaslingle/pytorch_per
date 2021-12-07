@@ -134,8 +134,7 @@ def training_loop(
         checkpoint_dir: str,
         run_name: str,
         checkpoint_interval: int,
-        replay_checkpointing: bool,
-        verbose=True
+        replay_checkpointing: bool
 ) -> None:
 
     if num_env_steps_thus_far == 0:
