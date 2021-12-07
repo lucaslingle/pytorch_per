@@ -7,7 +7,8 @@ Install the following system dependencies:
 #### Ubuntu     
 ```bash
 sudo apt-get update
-sudo apt-get install -y cmake openmpi-bin openmpi-doc libopenmpi-dev
+sudo apt-get install -y libglu1-mesa-dev libgl1-mesa-dev libosmesa6-dev xvfb ffmpeg curl patchelf libglfw3 libglfw3-dev zlib1g zlib1g-dev swig
+sudo apt-get install -y cmake libopenmpi-dev python3-dev zlib1g-dev
 ```
 
 #### Mac OS X
