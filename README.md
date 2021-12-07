@@ -34,13 +34,13 @@ pip install -e .
 ### Training
 
 #### Non-Distributed Training
-To train with the default settings, you can simply type
+To train with the default settings, you can simply type:
 ```bash
 python -m script
 ```
 
 #### Single-Machine Distributed Training
-To run in distributed mode on N processes, you can type
+To run in distributed mode on N processes, you can type:
 ```bash
 mpiexec -np N python -m script
 ```
