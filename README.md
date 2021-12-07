@@ -34,7 +34,7 @@ pip install -e .
 ### Training
 
 #### Non-Distributed Training
-To train with the default settings, you can simply type:
+To train with the default settings, you can simply type
 ```bash
 python -m script
 ```
