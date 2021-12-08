@@ -32,14 +32,14 @@ def create_argparser():
 
     ### training hparams
     parser.add_argument("--optimizer_name", choices=['rmsprop', 'adam', 'sgd'], default='rmsprop')
-    parser.add_argument("--learning_rate", type=float, default=8 * 6.25e-5)
+    parser.add_argument("--learning_rate", type=float, default=6.25e-5)
     parser.add_argument("--huber_loss", type=int, choices=[0,1], default=1)
     parser.add_argument("--target_update_interval", type=int, default=1e4)
     parser.add_argument("--max_env_steps_per_process", type=int, default=50e6)
-    parser.add_argument("--num_env_steps_per_policy_update", type=int, default=4*8)
+    parser.add_argument("--num_env_steps_per_policy_update", type=int, default=4)
     parser.add_argument("--num_env_steps_before_learning", type=int, default=5e4)
     parser.add_argument("--batches_per_policy_update", type=int, default=1)
-    parser.add_argument("--batch_size", type=int, default=32*8)
+    parser.add_argument("--batch_size", type=int, default=32)
     parser.add_argument("--discount_gamma", type=float, default=0.99)
     parser.add_argument("--epsilon_init", type=float, default=1.0)
     parser.add_argument("--epsilon_final", type=float, default=0.1)
