@@ -11,14 +11,6 @@ from per.utils.comm_util import sync_grads, ROOT_RANK
 from per.utils.checkpoint_util import save_checkpoint, save_replay_memory
 
 
-def mod_check(
-        step: int,
-        min_step: int,
-        mod: int
-) -> bool:
-    return step >= min_step and step % mod == 0
-
-
 @tc.no_grad()
 def update_target_network(
         q_network: QNetwork,
