@@ -61,7 +61,7 @@ def create_argparser():
     parser.add_argument("--run_name", type=str, default='default_hparams')
     parser.add_argument("--checkpoint_interval", type=int, default=1e4)
     parser.add_argument("--replay_checkpointing", type=int, choices=[0,1], default=0)
-    parser.add_argument("--auto_load_config", type=int, choices=[0,1], default=1)
+    parser.add_argument("--auto_load_config", type=int, choices=[0,1], default=0)
     return parser
 
 

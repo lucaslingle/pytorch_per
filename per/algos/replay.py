@@ -84,7 +84,7 @@ class PrioritizedReplayMemory:
 
     @property
     def num_items(self):
-        return max(self._capacity, self._total_steps)
+        return min(self._capacity, self._total_steps)
 
     def insert(self, experience_tuple):
         # inserts an experience tuple with max priority, updates upstream priorities,
