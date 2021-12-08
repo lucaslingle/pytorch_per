@@ -52,7 +52,7 @@ def get_tensor(
         return tc.FloatTensor(lt)
     if dtype == 'long':
         return tc.LongTensor(lt)
-    raise ValueError('Unsupported dtype for function extract_field.')
+    raise ValueError('Unsupported dtype for function get_tensor.')
 
 
 def compute_qvalues_and_targets(
