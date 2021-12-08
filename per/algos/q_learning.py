@@ -123,6 +123,52 @@ def compute_loss(
     return loss
 
 
+def training_step(
+        q_network: QNetwork,
+        target_network: QNetwork,
+        optimizer: tc.optim.Optimizer,
+        scheduler: Optional[tc.optim.lr_scheduler._LRScheduler],
+        replay_memory: PrioritizedReplayMemory,
+        batch_size: int,
+        device: str,
+        discount_gamma: float,
+        double_dqn: bool,
+        huber_loss: bool,
+        comm: type(MPI.COMM_WORLD)
+):
+    samples = replay_memory.sample(batch_size=batch_size)
+    qs, ys = compute_qvalues_and_targets(
+        q_network=q_network,
+        target_network=target_network,
+        s_t=get_tensor(samples['data'], 's_t', 'float').to(device),
+        a_t=get_tensor(samples['data'], 'a_t', 'long').to(device),
+        r_t=get_tensor(samples['data'], 'r_t', 'float').to(device),
+        d_t=get_tensor(samples['data'], 'd_t', 'float').to(device),
+        s_tp1=get_tensor(samples['data'], 's_tp1', 'float').to(device),
+        gamma=discount_gamma,
+        double_dqn=double_dqn)
+
+    deltas = ys - qs
+    replay_memory.update_td_errs(
+        indices=samples['indices'],
+        td_errs=list(deltas.detach().numpy()))
+
+    ws = tc.FloatTensor(samples['weights']).to(device)
+    loss = compute_loss(
+        inputs=qs,
+        targets=ys,
+        weights=ws,
+        huber_loss=huber_loss)
+    optimizer.zero_grad()
+    loss.backward()
+    sync_grads(model=q_network, comm=comm)
+    optimizer.step()
+    if scheduler:
+        scheduler.step()
+
+    return loss
+
+
 def training_loop(
         env: gym.Env,
         q_network: QNetwork,
@@ -175,35 +221,18 @@ def training_loop(
             ### maybe learn.
             if t % num_env_steps_per_policy_update == 0:
                 for _ in range(batches_per_policy_update):
-                    samples = replay_memory.sample(batch_size=batch_size)
-                    qs, ys = compute_qvalues_and_targets(
+                    loss = training_step(
                         q_network=q_network,
                         target_network=target_network,
-                        s_t=get_tensor(samples['data'], 's_t', 'float').to(device),
-                        a_t=get_tensor(samples['data'], 'a_t', 'long').to(device),
-                        r_t=get_tensor(samples['data'], 'r_t', 'float').to(device),
-                        d_t=get_tensor(samples['data'], 'd_t', 'float').to(device),
-                        s_tp1=get_tensor(samples['data'], 's_tp1', 'float').to(device),
-                        gamma=discount_gamma,
-                        double_dqn=double_dqn)
-
-                    deltas = ys - qs
-                    replay_memory.update_td_errs(
-                        indices=samples['indices'],
-                        td_errs=list(deltas.detach().numpy()))
-
-                    ws = tc.FloatTensor(samples['weights']).to(device)
-                    loss = compute_loss(
-                        inputs=qs,
-                        targets=ys,
-                        weights=ws,
-                        huber_loss=huber_loss)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    sync_grads(model=q_network, comm=comm)
-                    optimizer.step()
-                    if scheduler:
-                        scheduler.step()
+                        optimizer=optimizer,
+                        scheduler=scheduler,
+                        replay_memory=replay_memory,
+                        batch_size=batch_size,
+                        device=device,
+                        discount_gamma=discount_gamma,
+                        double_dqn=double_dqn,
+                        huber_loss=huber_loss,
+                        comm=comm)
 
                     loss_np = loss.detach().numpy()
                     loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
