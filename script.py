@@ -98,6 +98,13 @@ def create_env(env_name, mode):
     return env
 
 
+def get_device():
+    if tc.cuda.is_available():
+        return 'cuda:0'
+    else:
+        return 'cpu'
+
+
 def create_net(num_actions, dueling_head):
     architecture = NatureCNN()
     if dueling_head:
@@ -165,7 +172,8 @@ def create_annealing_fn(
 
 def main():
     args, comm = create_argparser().parse_args(), get_comm()
-    #args = maybe_load_config(args, comm)
+    args = maybe_load_config(args, comm)
+    device = get_device()
 
     ### create env.
     env = create_env(
@@ -175,11 +183,11 @@ def main():
     ### create learning system.
     q_network = create_net(
         num_actions=env.action_space.n,
-        dueling_head=args.dueling_head)
+        dueling_head=args.dueling_head).to(device)
 
     target_network = create_net(
         num_actions=env.action_space.n,
-        dueling_head=args.dueling_head)
+        dueling_head=args.dueling_head).to(device)
 
     optimizer = create_optimizer(
         network=q_network,
@@ -260,6 +268,7 @@ def main():
             num_env_steps_thus_far=num_env_steps_thus_far,
             batches_per_policy_update=args.batches_per_policy_update,
             batch_size=args.batch_size,
+            device=device,
             alpha_annealing_fn=alpha_annealing_fn,
             beta_annealing_fn=beta_annealing_fn,
             epsilon_annealing_fn=epsilon_annealing_fn,

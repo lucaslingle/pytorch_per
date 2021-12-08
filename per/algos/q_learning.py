@@ -124,6 +124,7 @@ def training_loop(
         num_env_steps_thus_far: int,
         batches_per_policy_update: int,
         batch_size: int,
+        device: str,
         alpha_annealing_fn: Callable[[int], float],
         beta_annealing_fn: Callable[[int], float],
         epsilon_annealing_fn: Callable[[int], float],
@@ -166,7 +167,7 @@ def training_loop(
         ### maybe learn.
         if mod_check(t, num_env_steps_before_learning, num_env_steps_per_policy_update):
             for _ in range(batches_per_policy_update):
-                samples = replay_memory.sample(batch_size=batch_size)
+                samples = replay_memory.sample(batch_size=batch_size).to(device)
                 qs, ys = compute_qvalues_and_targets(
                     experience_tuples=samples['data'],
                     q_network=q_network,
