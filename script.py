@@ -272,7 +272,7 @@ def main():
             alpha_annealing_fn=alpha_annealing_fn,
             beta_annealing_fn=beta_annealing_fn,
             epsilon_annealing_fn=epsilon_annealing_fn,
-            gamma=args.discount_gamma,
+            discount_gamma=args.discount_gamma,
             double_dqn=bool(args.double_dqn),
             huber_loss=bool(args.huber_loss),
             comm=comm,

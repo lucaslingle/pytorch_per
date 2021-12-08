@@ -32,21 +32,21 @@ def update_target_network(
 def step_env(
         q_network: QNetwork,
         epsilon: float,
-        o_t: np.ndarray,
+        s_t: np.ndarray,
         env: gym.Env
 ) -> ExperienceTuple:
     a_t = q_network.sample(
-        x=tc.FloatTensor(o_t).unsqueeze(0),
+        x=tc.FloatTensor(s_t).unsqueeze(0),
         epsilon=epsilon)
     a_t = int(a_t.squeeze(0).detach().numpy())
 
-    o_tp1, r_t, d_t, _ = env.step(action=a_t)
+    s_tp1, r_t, d_t, _ = env.step(action=a_t)
     if d_t:
-        o_tp1 = env.reset()
+        s_tp1 = env.reset()
     d_t = float(d_t)
 
     experience_tuple_t = ExperienceTuple(
-        s_t=o_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=o_tp1, td_err=None)
+        s_t=s_t, a_t=a_t, r_t=r_t, d_t=d_t, s_tp1=s_tp1, td_err=None)
     return experience_tuple_t
 
 
@@ -64,33 +64,46 @@ def get_tensor(
 
 
 def compute_qvalues_and_targets(
-        experience_tuples: List[ExperienceTuple],
         q_network: QNetwork,
         target_network: QNetwork,
+        s_t: tc.Tensor,
+        a_t: tc.Tensor,
+        r_t: tc.Tensor,
+        d_t: tc.Tensor,
+        s_tp1: tc.Tensor,
         gamma: float,
         double_dqn: bool
 ) -> Tuple[tc.Tensor, tc.Tensor]:
-    o_t = get_tensor(experience_tuples, 's_t', 'float')
-    a_t = get_tensor(experience_tuples, 'a_t', 'long')
-    r_t = get_tensor(experience_tuples, 'r_t', 'float')
-    d_t = get_tensor(experience_tuples, 'd_t', 'float')
-    o_tp1 = get_tensor(experience_tuples, 's_tp1', 'float')
+    """
+    :param q_network: Q-Network.
+    :param target_network: Target network.
+    :param s_t: Torch FloatTensor containing minibatch of current states.
+    :param a_t: Torch LongTensor containing minibatch of current actions.
+    :param r_t: Torch FloatTensor containing minibatch of rewards.
+    :param d_t: Torch FloatTensor containing minibatch of done signals.
+    :param s_tp1: Torch FloatTensor containing minibatch of next states.
+    :param gamma: Discount factor.
+    :param double_dqn: Use double-Q learning?
+    :return: Tuple containing
+        Torch FloatTensor with q-network predictions,
+        Torch FloatTensor with detached action-value targets.
+    """
     if double_dqn:
-        qs_tp1_tgt = target_network(o_tp1)
-        qs_tp1 = q_network(o_tp1)
+        qs_tp1_tgt = target_network(s_tp1)
+        qs_tp1 = q_network(s_tp1)
         argmax_a_tp1 = tc.argmax(qs_tp1, dim=-1)
         q_tp1_tgt = tc.gather(
             input=qs_tp1_tgt, dim=-1, index=argmax_a_tp1.unsqueeze(-1)).squeeze(-1)
         y_t = (r_t + (1. - d_t) * gamma * q_tp1_tgt).detach()
 
-        qs_t = q_network(o_t)
+        qs_t = q_network(s_t)
         q_t = tc.gather(input=qs_t, dim=-1, index=a_t.unsqueeze(-1)).squeeze(-1)
     else:
-        qs_tp1_tgt = target_network(o_tp1)
+        qs_tp1_tgt = target_network(s_tp1)
         q_tp1_tgt = tc.max(qs_tp1_tgt, dim=-1)
         y_t = (r_t + (1. - d_t) * gamma * q_tp1_tgt).detach()
 
-        qs_t = q_network(o_t)
+        qs_t = q_network(s_t)
         q_t = tc.gather(input=qs_t, dim=-1, index=a_t.unsqueeze(-1)).squeeze(-1)
     return q_t, y_t
 
@@ -101,6 +114,14 @@ def compute_loss(
         weights: tc.Tensor,
         huber_loss: bool
 ) -> tc.Tensor:
+    """
+    :param inputs: Torch FloatTensor containing action-value predictions
+    :param targets: Torch FloatTensor containing detached action-value targets
+    :param weights: Torch FloatTensor containing rescaled importance weights.
+    :param huber_loss: Boolean indicating whether to use Huber/Smooth L1 loss,
+        as done by Mnih et al., 2015, Schaul et al., 2015, etc.
+    :return: Torch FloatTensor containing minibatch loss.
+    """
     if huber_loss:
         criterion = tc.nn.SmoothL1Loss(reduction='none')
     else:
@@ -128,7 +149,7 @@ def training_loop(
         alpha_annealing_fn: Callable[[int], float],
         beta_annealing_fn: Callable[[int], float],
         epsilon_annealing_fn: Callable[[int], float],
-        gamma: float,
+        discount_gamma: float,
         double_dqn: bool,
         huber_loss: bool,
         comm: type(MPI.COMM_WORLD),
@@ -142,7 +163,7 @@ def training_loop(
         update_target_network(
             q_network=q_network,
             target_network=target_network)
-    o_t = env.reset()
+    s_t = env.reset()
 
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
         ### maybe update target network.
@@ -155,9 +176,9 @@ def training_loop(
         experience_tuple_t = step_env(
             q_network=q_network,
             epsilon=epsilon_annealing_fn(t),
-            o_t=o_t,
+            s_t=s_t,
             env=env)
-        o_t = experience_tuple_t.s_tp1
+        s_t = experience_tuple_t.s_tp1
 
         ### update replay memory.
         replay_memory.update_alpha(alpha_annealing_fn(t))
@@ -167,12 +188,16 @@ def training_loop(
         ### maybe learn.
         if mod_check(t, num_env_steps_before_learning, num_env_steps_per_policy_update):
             for _ in range(batches_per_policy_update):
-                samples = replay_memory.sample(batch_size=batch_size).to(device)
+                samples = replay_memory.sample(batch_size=batch_size)
                 qs, ys = compute_qvalues_and_targets(
-                    experience_tuples=samples['data'],
                     q_network=q_network,
                     target_network=target_network,
-                    gamma=gamma,
+                    s_t=get_tensor(samples['data'], 's_t', 'float').to(device),
+                    a_t=get_tensor(samples['data'], 'a_t', 'long').to(device),
+                    r_t=get_tensor(samples['data'], 'r_t', 'float').to(device),
+                    d_t=get_tensor(samples['data'], 'd_t', 'float').to(device),
+                    s_tp1=get_tensor(samples['data'], 's_tp1', 'float').to(device),
+                    gamma=discount_gamma,
                     double_dqn=double_dqn)
 
                 deltas = ys - qs
@@ -180,7 +205,7 @@ def training_loop(
                     indices=samples['indices'],
                     td_errs=list(deltas.detach().numpy()))
 
-                ws = tc.FloatTensor(samples['weights'])
+                ws = tc.FloatTensor(samples['weights']).to(device)
                 loss = compute_loss(
                     inputs=qs,
                     targets=ys,
