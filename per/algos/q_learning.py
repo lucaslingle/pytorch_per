@@ -166,12 +166,6 @@ def training_loop(
     s_t = env.reset()
 
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
-        ### maybe update target network.
-        if mod_check(t, num_env_steps_before_learning, target_update_interval):
-            update_target_network(
-                q_network=q_network,
-                target_network=target_network)
-
         ### act.
         experience_tuple_t = step_env(
             q_network=q_network,
@@ -185,61 +179,68 @@ def training_loop(
         replay_memory.update_beta(beta_annealing_fn(t))
         replay_memory.insert(experience_tuple_t)
 
-        ### maybe learn.
-        if mod_check(t, num_env_steps_before_learning, num_env_steps_per_policy_update):
-            for _ in range(batches_per_policy_update):
-                samples = replay_memory.sample(batch_size=batch_size)
-                qs, ys = compute_qvalues_and_targets(
+        if replay_memory.num_items >= num_env_steps_before_learning:
+            ### maybe learn.
+            if t % num_env_steps_per_policy_update == 0:
+                for _ in range(batches_per_policy_update):
+                    samples = replay_memory.sample(batch_size=batch_size)
+                    qs, ys = compute_qvalues_and_targets(
+                        q_network=q_network,
+                        target_network=target_network,
+                        s_t=get_tensor(samples['data'], 's_t', 'float').to(device),
+                        a_t=get_tensor(samples['data'], 'a_t', 'long').to(device),
+                        r_t=get_tensor(samples['data'], 'r_t', 'float').to(device),
+                        d_t=get_tensor(samples['data'], 'd_t', 'float').to(device),
+                        s_tp1=get_tensor(samples['data'], 's_tp1', 'float').to(device),
+                        gamma=discount_gamma,
+                        double_dqn=double_dqn)
+
+                    deltas = ys - qs
+                    replay_memory.update_td_errs(
+                        indices=samples['indices'],
+                        td_errs=list(deltas.detach().numpy()))
+
+                    ws = tc.FloatTensor(samples['weights']).to(device)
+                    loss = compute_loss(
+                        inputs=qs,
+                        targets=ys,
+                        weights=ws,
+                        huber_loss=huber_loss)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    sync_grads(model=q_network, comm=comm)
+                    optimizer.step()
+                    if scheduler:
+                        scheduler.step()
+
+                    loss_np = loss.detach().numpy()
+                    loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
+                    loss_mean = loss_sum / comm.Get_size()
+                    if comm.Get_rank() == ROOT_RANK:
+                        global_t = t * comm.Get_size()
+                        print(f"global timestep: {global_t}... loss: {loss_mean}")
+
+            ### maybe update target network.
+            if t % target_update_interval == 0:
+                update_target_network(
                     q_network=q_network,
-                    target_network=target_network,
-                    s_t=get_tensor(samples['data'], 's_t', 'float').to(device),
-                    a_t=get_tensor(samples['data'], 'a_t', 'long').to(device),
-                    r_t=get_tensor(samples['data'], 'r_t', 'float').to(device),
-                    d_t=get_tensor(samples['data'], 'd_t', 'float').to(device),
-                    s_tp1=get_tensor(samples['data'], 's_tp1', 'float').to(device),
-                    gamma=discount_gamma,
-                    double_dqn=double_dqn)
+                    target_network=target_network)
 
-                deltas = ys - qs
-                replay_memory.update_td_errs(
-                    indices=samples['indices'],
-                    td_errs=list(deltas.detach().numpy()))
-
-                ws = tc.FloatTensor(samples['weights']).to(device)
-                loss = compute_loss(
-                    inputs=qs,
-                    targets=ys,
-                    weights=ws,
-                    huber_loss=huber_loss)
-                optimizer.zero_grad()
-                loss.backward()
-                sync_grads(model=q_network, comm=comm)
-                optimizer.step()
-                if scheduler:
-                    scheduler.step()
-
-                loss_np = loss.detach().numpy()
-                loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
-                loss_mean = loss_sum / comm.Get_size()
+            ### maybe save checkpoint.
+            if t % checkpoint_interval == 0:
                 if comm.Get_rank() == ROOT_RANK:
-                    global_t = t * comm.Get_size()
-                    print(f"global timestep: {global_t}... loss: {loss_mean}")
-
-        ### maybe save checkpoint.
-        if mod_check(t, num_env_steps_before_learning, checkpoint_interval):
-            if comm.Get_rank() == ROOT_RANK:
-                save_checkpoint(
-                    checkpoint_dir=checkpoint_dir,
-                    run_name=run_name,
-                    steps=t+1,
-                    q_network=q_network,
-                    target_network=target_network,
-                    optimizer=optimizer,
-                    scheduler=scheduler)
-            if replay_checkpointing:
-                save_replay_memory(
-                    checkpoint_dir=checkpoint_dir,
-                    run_name=run_name,
-                    rank=comm.Get_rank(),
-                    steps=t+1,
-                    replay_memory=replay_memory)
+                    save_checkpoint(
+                        checkpoint_dir=checkpoint_dir,
+                        run_name=run_name,
+                        steps=t+1,
+                        q_network=q_network,
+                        target_network=target_network,
+                        optimizer=optimizer,
+                        scheduler=scheduler)
+                if replay_checkpointing:
+                    save_replay_memory(
+                        checkpoint_dir=checkpoint_dir,
+                        run_name=run_name,
+                        rank=comm.Get_rank(),
+                        steps=t+1,
+                        replay_memory=replay_memory)

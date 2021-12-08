@@ -82,6 +82,10 @@ class PrioritizedReplayMemory:
         self._expiration_idx = experation_start_idx + next_memory_id
         self._total_steps += 1
 
+    @property
+    def num_items(self):
+        return max(self._capacity, self._total_steps)
+
     def insert(self, experience_tuple):
         # inserts an experience tuple with max priority, updates upstream priorities,
         # and steps the expiration index.
