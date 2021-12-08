@@ -169,6 +169,19 @@ def training_step(
     return loss
 
 
+def logging_step(
+        t: int,
+        loss: tc.Tensor,
+        comm: type(MPI.COMM_WORLD)
+):
+    loss_np = loss.detach().numpy()
+    loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
+    loss_mean = loss_sum / comm.Get_size()
+    if comm.Get_rank() == ROOT_RANK:
+        global_t = t * comm.Get_size()
+        print(f"global timestep: {global_t}... loss: {loss_mean}")
+
+
 def training_loop(
         env: gym.Env,
         q_network: QNetwork,
@@ -221,42 +234,20 @@ def training_loop(
             ### maybe learn.
             if t % num_env_steps_per_policy_update == 0:
                 for _ in range(batches_per_policy_update):
-                    samples = replay_memory.sample(batch_size=batch_size)
-                    qs, ys = compute_qvalues_and_targets(
+                    loss = training_step(
                         q_network=q_network,
                         target_network=target_network,
-                        s_t=get_tensor(samples['data'], 's_t', 'float').to(device),
-                        a_t=get_tensor(samples['data'], 'a_t', 'long').to(device),
-                        r_t=get_tensor(samples['data'], 'r_t', 'float').to(device),
-                        d_t=get_tensor(samples['data'], 'd_t', 'float').to(device),
-                        s_tp1=get_tensor(samples['data'], 's_tp1', 'float').to(device),
-                        gamma=discount_gamma,
-                        double_dqn=double_dqn)
+                        optimizer=optimizer,
+                        scheduler=scheduler,
+                        replay_memory=replay_memory,
+                        batch_size=batch_size,
+                        device=device,
+                        discount_gamma=discount_gamma,
+                        double_dqn=double_dqn,
+                        huber_loss=huber_loss,
+                        comm=comm)
 
-                    deltas = ys - qs
-                    replay_memory.update_td_errs(
-                        indices=samples['indices'],
-                        td_errs=list(deltas.detach().numpy()))
-
-                    ws = tc.FloatTensor(samples['weights']).to(device)
-                    loss = compute_loss(
-                        inputs=qs,
-                        targets=ys,
-                        weights=ws,
-                        huber_loss=huber_loss)
-                    optimizer.zero_grad()
-                    loss.backward()
-                    sync_grads(model=q_network, comm=comm)
-                    optimizer.step()
-                    if scheduler:
-                        scheduler.step()
-
-                    loss_np = loss.detach().numpy()
-                    loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
-                    loss_mean = loss_sum / comm.Get_size()
-                    if comm.Get_rank() == ROOT_RANK:
-                        global_t = t * comm.Get_size()
-                        print(f"global timestep: {global_t}... loss: {loss_mean}")
+                    logging_step(t, loss, comm)
 
             ### maybe update target network.
             if t % target_update_interval == 0:
