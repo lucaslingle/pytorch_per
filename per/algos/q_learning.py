@@ -180,12 +180,6 @@ def training_loop(
         replay_memory.insert(experience_tuple_t)
 
         if replay_memory.num_items >= num_env_steps_before_learning:
-            ### maybe update target network.
-            if t % target_update_interval == 0:
-                update_target_network(
-                    q_network=q_network,
-                    target_network=target_network)
-
             ### maybe learn.
             if t % num_env_steps_per_policy_update == 0:
                 for _ in range(batches_per_policy_update):
@@ -225,6 +219,12 @@ def training_loop(
                     if comm.Get_rank() == ROOT_RANK:
                         global_t = t * comm.Get_size()
                         print(f"global timestep: {global_t}... loss: {loss_mean}")
+
+            ### maybe update target network.
+            if t % target_update_interval == 0:
+                update_target_network(
+                    q_network=q_network,
+                    target_network=target_network)
 
             ### maybe save checkpoint.
             if t % checkpoint_interval == 0:
