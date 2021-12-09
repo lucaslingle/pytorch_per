@@ -10,7 +10,7 @@ setup(
     install_requires=[
         'torch==1.8.1',
         'numpy==1.20.3',
-        'mpi4py=3.0.3',
-        'moviepy=1.0.3'
+        'mpi4py==3.0.3',
+        'moviepy==1.0.3'
     ]
 )
