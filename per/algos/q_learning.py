@@ -156,7 +156,7 @@ def training_step(
         indices=samples['indices'],
         td_errs=list(deltas.detach().cpu().numpy()))
 
-    ws = tc.FloatTensor(samples['weights']).to(device)
+    ws = tc.tensor(samples['weights']).float().to(device)
     loss = compute_loss(
         inputs=qs,
         targets=ys,
