@@ -17,16 +17,16 @@ class QNetwork(tc.nn.Module):
         qpred = self._head(features)
         return qpred
 
-    def sample(self, x, epsilon):
+    def sample(self, x, epsilon, device):
         batch_size = x.shape[0]
         probs = tc.FloatTensor([1-epsilon, epsilon])
         dist = tc.distributions.Categorical(probs=probs)
-        do_rand = dist.sample((batch_size,))
+        do_rand = dist.sample((batch_size,)).to(device)
 
         qpred = self.forward(x)
         greedy_action = tc.argmax(qpred, dim=-1)
         random_action = tc.randint(
-            low=0, high=self._head.num_actions, size=(batch_size,))
+            low=0, high=self._head.num_actions, size=(batch_size,)).to(device)
 
         action = (1-do_rand) * greedy_action + do_rand * random_action
         return action
