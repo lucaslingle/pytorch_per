@@ -14,8 +14,7 @@ from per.agents.dqn import QNetwork
 from per.algos.replay import PrioritizedReplayMemory
 from per.algos.q_learning import training_loop
 
-from per.utils.checkpoint_util import maybe_load_checkpoint, maybe_load_replay_memory
-from per.utils.comm_util import get_comm, sync_state, ROOT_RANK
+from per.utils.checkpoint_util import maybe_load_checkpoint
 from per.utils.atari_util import make_atari, wrap_deepmind
 from per.utils.video_util import save_video
 
@@ -60,12 +59,11 @@ def create_argparser():
     parser.add_argument("--checkpoint_dir", type=str, default='models_dir/')
     parser.add_argument("--run_name", type=str, default='default_hparams')
     parser.add_argument("--checkpoint_interval", type=int, default=1e4)
-    parser.add_argument("--replay_checkpointing", type=int, choices=[0,1], default=0)
     parser.add_argument("--auto_load_config", type=int, choices=[0,1], default=0)
     return parser
 
 
-def maybe_load_config(args, comm):
+def maybe_load_config(args):
     # picks up a project from where it left off,
     # without requiring all command line args to be specified again
     if not bool(args.auto_load_config):
@@ -73,16 +71,14 @@ def maybe_load_config(args, comm):
     mode = args.mode
     base_path = os.path.join(args.checkpoint_dir, args.run_name)
     config_path = os.path.join(base_path, 'config')
-    if comm.Get_rank() == ROOT_RANK:
-        if os.path.exists(config_path):
-            with open(config_path, 'rb') as f:
-                args = pickle.load(f)
-            args.mode = mode
-        else:
-            os.makedirs(base_path, exist_ok=True)
-            with open(config_path, 'wb') as f:
-                pickle.dump(args, f)
-    args = comm.bcast(args, root=ROOT_RANK)
+    if os.path.exists(config_path):
+        with open(config_path, 'rb') as f:
+            args = pickle.load(f)
+        args.mode = mode
+    else:
+        os.makedirs(base_path, exist_ok=True)
+        with open(config_path, 'wb') as f:
+            pickle.dump(args, f)
     return args
 
 
@@ -100,9 +96,10 @@ def create_env(env_name, mode):
 
 def get_device():
     if tc.cuda.is_available():
-        return 'cuda:0'
+        device = 'cuda:0'
     else:
-        return 'cpu'
+        device = 'cpu'
+    return device
 
 
 def create_net(num_actions, dueling_head):
@@ -171,9 +168,12 @@ def create_annealing_fn(
 
 
 def main():
-    args, comm = create_argparser().parse_args(), get_comm()
-    args = maybe_load_config(args, comm)
+    args = create_argparser().parse_args()
+    args = maybe_load_config(args)
+    print(vars(args))
+
     device = get_device()
+    print(device)
 
     ### create env.
     env = create_env(
@@ -202,37 +202,16 @@ def main():
         beta_init=args.beta_init)
 
     ### maybe load checkpoint on process with rank zero.
-    num_env_steps_thus_far = 0
-    if comm.Get_rank() == ROOT_RANK:
-        num_env_steps_thus_far = maybe_load_checkpoint(
-            checkpoint_dir=args.checkpoint_dir,
-            run_name=args.run_name,
-            q_network=q_network,
-            target_network=target_network,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            steps=None)
+    num_env_steps_thus_far = maybe_load_checkpoint(
+        checkpoint_dir=args.checkpoint_dir,
+        run_name=args.run_name,
+        q_network=q_network,
+        target_network=target_network,
+        optimizer=optimizer,
+        scheduler=scheduler,
+        steps=None)
 
     if args.mode == 'train':
-        ### sync torch checkpointables' states across processes.
-        num_env_steps_thus_far = comm.bcast(num_env_steps_thus_far, root=ROOT_RANK)
-        sync_state(
-            q_network=q_network,
-            target_network=target_network,
-            optimizer=optimizer,
-            scheduler=scheduler,
-            comm=comm,
-            root=ROOT_RANK)
-
-        ### maybe load replay memory on each process.
-        if bool(args.replay_checkpointing):
-            replay_memory = maybe_load_replay_memory(
-                steps=num_env_steps_thus_far,
-                checkpoint_dir=args.checkpoint_dir,
-                run_name=args.run_name,
-                rank=comm.Get_rank(),
-                replay_memory=replay_memory)
-
         ### create annealing functions.
         alpha_annealing_fn = create_annealing_fn(
             initial_value=args.alpha_init,
@@ -275,19 +254,17 @@ def main():
             discount_gamma=args.discount_gamma,
             double_dqn=bool(args.double_dqn),
             huber_loss=bool(args.huber_loss),
-            comm=comm,
             checkpoint_dir=args.checkpoint_dir,
             run_name=args.run_name,
-            checkpoint_interval=args.checkpoint_interval,
-            replay_checkpointing=bool(args.replay_checkpointing))
+            checkpoint_interval=args.checkpoint_interval)
 
     elif args.mode == 'video':
-        if comm.Get_rank() == ROOT_RANK:
-            save_video(
-                checkpoint_dir=args.checkpoint_dir,
-                run_name=args.run_name,
-                q_network=q_network,
-                env=env)
+        save_video(
+            env=env,
+            q_network=q_network,
+            device=device,
+            checkpoint_dir=args.checkpoint_dir,
+            run_name=args.run_name)
     else:
         raise NotImplementedError
 

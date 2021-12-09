@@ -4,13 +4,12 @@ https://github.com/openai/baselines/blob/master/baselines/common/atari_wrappers.
 """
 
 from collections import deque
-import numpy as np
 import os
 os.environ.setdefault('PATH', '')
 
+import numpy as np
 import cv2
 cv2.ocl.setUseOpenCL(False)
-
 import gym
 from gym import spaces
 from gym.wrappers import TimeLimit

@@ -3,12 +3,10 @@ from typing import Tuple, List, Optional, Callable
 import torch as tc
 import numpy as np
 import gym
-from mpi4py import MPI
 
 from per.agents.dqn import QNetwork
 from per.algos.replay import ExperienceTuple, PrioritizedReplayMemory
-from per.utils.comm_util import sync_grads, ROOT_RANK
-from per.utils.checkpoint_util import save_checkpoint, save_replay_memory
+from per.utils.checkpoint_util import save_checkpoint
 
 
 @tc.no_grad()
@@ -136,8 +134,7 @@ def training_step(
         device: str,
         discount_gamma: float,
         double_dqn: bool,
-        huber_loss: bool,
-        comm: type(MPI.COMM_WORLD)
+        huber_loss: bool
 ):
     samples = replay_memory.sample(batch_size=batch_size)
     qs, ys = compute_qvalues_and_targets(
@@ -164,7 +161,6 @@ def training_step(
         huber_loss=huber_loss)
     optimizer.zero_grad()
     loss.backward()
-    sync_grads(model=q_network, comm=comm)
     optimizer.step()
     if scheduler:
         scheduler.step()
@@ -174,15 +170,10 @@ def training_step(
 
 def logging_step(
         t: int,
-        loss: tc.Tensor,
-        comm: type(MPI.COMM_WORLD)
+        loss: tc.Tensor
 ):
     loss_np = loss.detach().cpu().numpy()
-    loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
-    loss_mean = loss_sum / comm.Get_size()
-    if comm.Get_rank() == ROOT_RANK:
-        global_t = t * comm.Get_size()
-        print(f"global timestep: {global_t}... loss: {loss_mean}")
+    print(f"timestep: {t}... loss: {loss_np}")
 
 
 def training_loop(
@@ -206,11 +197,9 @@ def training_loop(
         discount_gamma: float,
         double_dqn: bool,
         huber_loss: bool,
-        comm: type(MPI.COMM_WORLD),
         checkpoint_dir: str,
         run_name: str,
-        checkpoint_interval: int,
-        replay_checkpointing: bool
+        checkpoint_interval: int
 ) -> None:
 
     if num_env_steps_thus_far == 0:
@@ -248,10 +237,9 @@ def training_loop(
                         device=device,
                         discount_gamma=discount_gamma,
                         double_dqn=double_dqn,
-                        huber_loss=huber_loss,
-                        comm=comm)
+                        huber_loss=huber_loss)
 
-                    logging_step(t, loss, comm)
+                    logging_step(t, loss)
 
             ### maybe update target network.
             if t % target_update_interval == 0:
@@ -261,19 +249,11 @@ def training_loop(
 
             ### maybe save checkpoint.
             if t % checkpoint_interval == 0:
-                if comm.Get_rank() == ROOT_RANK:
-                    save_checkpoint(
-                        checkpoint_dir=checkpoint_dir,
-                        run_name=run_name,
-                        steps=t+1,
-                        q_network=q_network,
-                        target_network=target_network,
-                        optimizer=optimizer,
-                        scheduler=scheduler)
-                if replay_checkpointing:
-                    save_replay_memory(
-                        checkpoint_dir=checkpoint_dir,
-                        run_name=run_name,
-                        rank=comm.Get_rank(),
-                        steps=t+1,
-                        replay_memory=replay_memory)
+                save_checkpoint(
+                    checkpoint_dir=checkpoint_dir,
+                    run_name=run_name,
+                    steps=t+1,
+                    q_network=q_network,
+                    target_network=target_network,
+                    optimizer=optimizer,
+                    scheduler=scheduler)

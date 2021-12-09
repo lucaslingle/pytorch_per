@@ -3,12 +3,8 @@ Utility module for saving and loading checkpoints.
 """
 
 import os
-import pickle
-import zlib
 
 import torch as tc
-
-from per.utils.comm_util import ROOT_RANK
 
 
 def _format_name(kind, steps, suffix):
@@ -98,64 +94,6 @@ def _deserialize_and_load_state_dict(
     path = os.path.join(base_path, _format_name(kind_name, steps, 'pth'))
     checkpointable.load_state_dict(tc.load(path))
     return steps
-
-
-def _serialize_and_save_pickleable_state(
-        base_path,
-        kind_name,
-        steps,
-        pickleable,
-        n=5
-):
-    """
-    Saves a checkpoint of a pickleable python object.
-    Also tidies up base_path by keeping only last 5 ckpts.
-
-    Args:
-        base_path: base path for checkpointing.
-        kind_name: kind name of python object being pickled
-            (e.g., 'replay_memory').
-        steps: step number for the checkpoint to save.
-        pickleable: pickleable python object to persist.
-        n: int number of past checkpoints to keep.
-
-    Returns:
-        None
-    """
-    os.makedirs(base_path, exist_ok=True)
-    path = os.path.join(base_path, _format_name(kind_name, steps, 'pkl'))
-    b = pickle.dumps(pickleable)
-    c = zlib.compress(b, level=6)
-    with open(path, 'wb') as f:
-        f.write(c)
-    _clean(base_path, kind_name, n=n)
-
-
-def _deserialize_and_load_pickleable_state(
-        base_path,
-        kind_name,
-        steps
-):
-    """
-    Loads a checkpoint of a pickleable python object.
-
-    Args:
-        base_path: base path for checkpointing.
-        kind_name: kind name of python object being pickled
-            (e.g., 'replay_memory').
-        steps: step number for the checkpoint to load. if none, uses latest.
-
-    Returns:
-        number of env steps experienced by loaded checkpoint.
-    """
-    if steps is None:
-        steps = _latest_step(base_path, kind_name)
-    path = os.path.join(base_path, _format_name(kind_name, steps, 'pkl'))
-    with open(path, 'rb') as f:
-        c = f.read()
-    b = zlib.decompress(c)
-    pickleable = pickle.loads(b)
-    return pickleable
 
 
 def save_checkpoint(
@@ -250,43 +188,3 @@ def maybe_load_checkpoint(
         print(f"Loaded torch checkpoint from {base_path}, with step {_steps}.")
         print("Continuing from checkpoint.")
         return _steps
-
-
-def save_replay_memory(
-        checkpoint_dir,
-        run_name,
-        rank,
-        steps,
-        replay_memory,
-        n=1
-):
-    base_path = os.path.join(checkpoint_dir, run_name, 'pickles')
-    _serialize_and_save_pickleable_state(
-        base_path=base_path,
-        kind_name=f"replay_memory_{rank}",
-        steps=steps,
-        pickleable=replay_memory,
-        n=n)
-
-
-def maybe_load_replay_memory(
-        checkpoint_dir,
-        run_name,
-        rank,
-        steps,
-        replay_memory
-):
-    base_path = os.path.join(checkpoint_dir, run_name, 'pickles')
-    try:
-        replay_memory = _deserialize_and_load_pickleable_state(
-            base_path=base_path,
-            kind_name=f"replay_memory_{rank}",
-            steps=steps)
-        print(f"Loaded replay checkpoint from {base_path}, with step {steps}.")
-        print("Continuing from checkpoint.")
-        return replay_memory
-    except FileNotFoundError:
-        if rank == ROOT_RANK:
-            print(f"Bad replay checkpoint or none at {base_path} with step {steps}.")
-            print("Running from scratch.")
-        return replay_memory

@@ -10,7 +10,6 @@ setup(
     install_requires=[
         'torch==1.10.0',
         'numpy==1.20.3',
-        'mpi4py==3.0.3',
         'moviepy==1.0.3',
         'atari-py==0.2.6',
         'gym==0.18.0',
