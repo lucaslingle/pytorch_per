@@ -25,11 +25,13 @@ def step_env(
         q_network: QNetwork,
         epsilon: float,
         s_t: np.ndarray,
-        env: gym.Env
+        env: gym.Env,
+        device: str
 ) -> ExperienceTuple:
     a_t = q_network.sample(
-        x=tc.FloatTensor(s_t).unsqueeze(0),
-        epsilon=epsilon)
+        x=tc.tensor(s_t).float().unsqueeze(0).to(device),
+        epsilon=epsilon,
+        device=device)
     a_t = int(a_t.squeeze(0).detach().numpy())
 
     s_tp1, r_t, d_t, _ = env.step(action=a_t)
@@ -48,10 +50,11 @@ def get_tensor(
         dtype: str
 ) -> tc.Tensor:
     lt = list(map(lambda et: getattr(et, field_name), experience_tuples))
+    ts = tc.tensor(lt)
     if dtype == 'float':
-        return tc.FloatTensor(lt)
+        return ts.float()
     if dtype == 'long':
-        return tc.LongTensor(lt)
+        return ts.long()
     raise ValueError('Unsupported dtype for function get_tensor.')
 
 
@@ -222,7 +225,8 @@ def training_loop(
             q_network=q_network,
             epsilon=epsilon_annealing_fn(t),
             s_t=s_t,
-            env=env)
+            env=env,
+            device=device)
         s_t = experience_tuple_t.s_tp1
 
         ### update replay memory.
