@@ -17,7 +17,7 @@ def update_target_network(
         target_network: QNetwork
 ) -> None:
     for dest, src in zip(target_network.parameters(), q_network.parameters()):
-        dest.copy_(src.clone().detach())
+        dest.copy_(src.detach().clone())
 
 
 @tc.no_grad()
