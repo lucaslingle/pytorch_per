@@ -34,19 +34,9 @@ class NatureCNN(tc.nn.Module):
             tc.nn.Conv2d(64, 64, kernel_size=(3,3), stride=(1,1)),
             tc.nn.ReLU(),
             tc.nn.Flatten(),
-            tc.nn.Linear(3136, self._feature_dim),
+            tc.nn.Linear(3136, self._feature_dim, bias=True),
             tc.nn.ReLU()
         )
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self._network.modules():
-            if isinstance(m, tc.nn.Conv2d):
-                tc.nn.init.xavier_uniform_(m.weight)
-                tc.nn.init.zeros_(m.bias)
-            elif isinstance(m, tc.nn.Linear):
-                normc_initializer(m.weight, gain=1.0)
-                tc.nn.init.zeros_(m.bias)
 
     @property
     def output_dim(self):
