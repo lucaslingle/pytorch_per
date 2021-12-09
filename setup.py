@@ -4,7 +4,7 @@ from setuptools import setup
 setup(
     name="pytorch_per",
     py_modules=["per"],
-    version="0.0.1",
+    version="0.1.0",
     description="A Pytorch implementation of Prioritized Experience Replay.",
     author="Lucas D. Lingle",
     install_requires=[
