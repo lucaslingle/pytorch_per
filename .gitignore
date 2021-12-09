@@ -1,4 +1,7 @@
 .idea
+checkpoints/
+model_dir/
+models_dir/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -10,10 +10,10 @@ class LinearActionValueHead(tc.nn.Module):
             in_features=self._num_features,
             out_features=self._num_actions,
             bias=True)
-        self._init_weights()
 
-    def _init_weights(self):
-        tc.nn.init.xavier_uniform_(self._linear.weight)
+    @property
+    def num_actions(self):
+        return self._num_actions
 
     def forward(self, x):
         qpred = self._linear(x)
@@ -27,38 +27,20 @@ class DuelingActionValueHead(tc.nn.Module):
         self._num_actions = num_actions
 
         self._value_head = tc.nn.Sequential(
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=self._num_features,
-                bias=True),
+            tc.nn.Linear(self._num_features, self._num_features, bias=True),
             tc.nn.ReLU(),
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=1,
-                bias=True)
+            tc.nn.Linear(self._num_features, 1, bias=True)
         )
 
         self._advantage_head = tc.nn.Sequential(
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=self._num_features,
-                bias=True),
+            tc.nn.Linear(self._num_features, self._num_features, bias=True),
             tc.nn.ReLU(),
-            tc.nn.Linear(
-                in_features=self._num_features,
-                out_features=self._num_actions,
-                bias=False)
+            tc.nn.Linear(self._num_features, self._num_actions, bias=False)
         )
 
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self._value_head:
-            if isinstance(m, tc.nn.Linear):
-                tc.nn.init.xavier_normal_(m.weight)
-        for m in self._advantage_head:
-            if isinstance(m, tc.nn.Linear):
-                tc.nn.init.xavier_normal_(m.weight)
+    @property
+    def num_actions(self):
+        return self._num_actions
 
     def forward(self, x):
         vpred = self._value_head(x)
