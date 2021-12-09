@@ -8,7 +8,7 @@ setup(
     description="A Pytorch implementation of Prioritized Experience Replay.",
     author="Lucas D. Lingle",
     install_requires=[
-        'torch==1.8.1',
+        'torch==1.10.0',
         'numpy==1.20.3',
         'mpi4py==3.0.3',
         'moviepy==1.0.3',
