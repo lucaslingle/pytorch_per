@@ -60,4 +60,4 @@ Videos can be saved to the checkpoint directory for a given model by using the c
 ## Wall-Clock Time
 We currently support distributed data parallel training on CPUs using mpi4py directly. On a laptop with a ```2.3 GHz 8-Core Intel Core i9``` CPU, we obtained a throughput of about 150,000 timesteps per hour, meaning that training for 50M timesteps (200M frames) should take about 333 hours, or 13.9 days.
 
-We are currently evaluating the throughput on an NVIDIA V100 GPU. 
+Presently, the throughput on an NVIDIA V100 GPU is not significantly better. This will be the subject of additional investigation using torch's profiling tools. Feel free to check back later. 
