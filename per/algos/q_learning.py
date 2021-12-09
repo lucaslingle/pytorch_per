@@ -32,7 +32,7 @@ def step_env(
         x=tc.tensor(s_t).float().unsqueeze(0).to(device),
         epsilon=epsilon,
         device=device)
-    a_t = int(a_t.squeeze(0).detach().numpy())
+    a_t = int(a_t.squeeze(0).detach().cpu().numpy())
 
     s_tp1, r_t, d_t, _ = env.step(action=a_t)
     if d_t:
@@ -154,7 +154,7 @@ def training_step(
     deltas = ys - qs
     replay_memory.update_td_errs(
         indices=samples['indices'],
-        td_errs=list(deltas.detach().numpy()))
+        td_errs=list(deltas.detach().cpu().numpy()))
 
     ws = tc.FloatTensor(samples['weights']).to(device)
     loss = compute_loss(
@@ -177,7 +177,7 @@ def logging_step(
         loss: tc.Tensor,
         comm: type(MPI.COMM_WORLD)
 ):
-    loss_np = loss.detach().numpy()
+    loss_np = loss.detach().cpu().numpy()
     loss_sum = comm.allreduce(loss_np, op=MPI.SUM)
     loss_mean = loss_sum / comm.Get_size()
     if comm.Get_rank() == ROOT_RANK:
