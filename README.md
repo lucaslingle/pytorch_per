@@ -7,8 +7,7 @@ Install the following system dependencies:
 #### Ubuntu     
 ```bash
 sudo apt-get update
-sudo apt-get install -y libglu1-mesa-dev libgl1-mesa-dev libosmesa6-dev xvfb ffmpeg curl patchelf libglfw3 libglfw3-dev zlib1g zlib1g-dev swig
-sudo apt-get install -y cmake python3-dev
+sudo apt-get install -y libglu1-mesa-dev libgl1-mesa-dev libosmesa6-dev xvfb ffmpeg curl patchelf libglfw3 libglfw3-dev zlib1g zlib1g-dev swig cmake python3-dev
 ```
 
 #### Mac OS X
@@ -29,6 +28,7 @@ git clone https://github.com/lucaslingle/pytorch_per
 cd pytorch_per
 pip install -e .
 ```
+
 
 ## Usage
 
