@@ -8,13 +8,13 @@ Install the following system dependencies:
 ```bash
 sudo apt-get update
 sudo apt-get install -y libglu1-mesa-dev libgl1-mesa-dev libosmesa6-dev xvfb ffmpeg curl patchelf libglfw3 libglfw3-dev zlib1g zlib1g-dev swig
-sudo apt-get install -y cmake libopenmpi-dev python3-dev
+sudo apt-get install -y cmake python3-dev
 ```
 
 #### Mac OS X
 Installation of the system packages on Mac requires [Homebrew](https://brew.sh). With Homebrew installed, run the following:
 ```bash
-brew install cmake openmpi
+brew install cmake
 ```
 
 #### Everyone
@@ -34,20 +34,11 @@ pip install -e .
 
 ### Training
 
-#### Non-Distributed Training
 To train with the default settings, you can simply type:
 ```bash
 python -m script
 ```
-
-#### Single-Machine Distributed Training
-To run in distributed mode on N processes, you can type:
-```bash
-mpiexec -np N python -m script
-```
-This will launch N parallel processes, each running the ```script.py``` script. These processes each generate and store experience tuples in separate replay memories, and then synchronously train on the collected experience in a data-parallel manner. 
-
-To see additional configuration options, you can simply type ```python -m script --help```. 
+To see additional configuration options, append the ```--help``` command line argument.
 
 ### Checkpoints
 By default, checkpoints are saved to ```./models_dir/default_hparams/```. 
