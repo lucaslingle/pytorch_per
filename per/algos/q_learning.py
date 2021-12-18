@@ -27,7 +27,7 @@ def step_env(
         device: str
 ) -> ExperienceTuple:
     a_t = q_network.sample(
-        x=tc.tensor(s_t).float().unsqueeze(0).to(device),
+        x=tc.tensor(np.array(s_t), requires_grad=False).float().unsqueeze(0).to(device),
         epsilon=epsilon,
         device=device)
     a_t = int(a_t.squeeze(0).detach().cpu().numpy())
@@ -209,6 +209,7 @@ def training_loop(
     s_t = env.reset()
 
     for t in range(num_env_steps_thus_far, max_env_steps_per_process):
+        print(t)
         ### act.
         experience_tuple_t = step_env(
             q_network=q_network,
