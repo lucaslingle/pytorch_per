@@ -29,7 +29,7 @@ def step_env(
         device: str
 ) -> ExperienceTuple:
     a_t = q_network.sample(
-        x=tc.tensor(s_t).float().unsqueeze(0).to(device),
+        x=tc.tensor(np.array(s_t), requires_grad=False).float().unsqueeze(0).to(device),
         epsilon=epsilon,
         device=device)
     a_t = int(a_t.squeeze(0).detach().cpu().numpy())
